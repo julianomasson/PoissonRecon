@@ -50,6 +50,112 @@ DAMAGE.
 #include "Image.h"
 #include "RegularGrid.h"
 
+#include "PoissonRecon.h"
+
+template< typename Real, unsigned int Dim >
+struct VertexDataExtractor
+{
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, MultiPointStreamData< Real, PointStreamColor< Real > > > > PlyVertexWithNormalValueAndColor;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, MultiPointStreamData< Real > > > PlyVertexWithNormalAndValue;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real, PointStreamColor< Real > > > > PlyVertexWithNormalAndColor;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real > > > PlyVertexWithNormal;
+
+	template< typename Vertex >
+	static void Extract(const Vertex &v, Poisson::Point<Real> &point)
+	{
+		ERROR_OUT("Unrecognized vertex type");
+	}
+	template<>
+	static void Extract(const PlyVertexWithNormalValueAndColor &v, Poisson::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			point.xyz[i] = v.point.coords[i];
+			//Normal
+			point.normal[i] = v.data.template data<0>().coords[i];
+			//Color 
+			point.color[i] = std::get< 0 >(v.data.template data<2>()).data().coords[i];
+			//Value
+			point.value = v.data.template data<1>();
+		}
+	}
+	template<>
+	static void Extract(const PlyVertexWithNormalAndValue &v, Poisson::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			point.xyz[i] = v.point.coords[i];
+			//Normal
+			point.normal[i] = v.data.template data<0>().coords[i];
+			//Value
+			point.value = v.data.template data<1>();
+		}
+	}
+	template<>
+	static void Extract(const PlyVertexWithNormalAndColor &v, Poisson::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			point.xyz[i] = v.point.coords[i];
+			//Normal
+			point.normal[i] = v.data.template data<0>().coords[i];
+			//Color 
+			point.color[i] = std::get< 0 >(v.data.template data<1>()).data().coords[i];
+		}
+	}
+	template<>
+	static void Extract(const PlyVertexWithNormal &v, Poisson::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			point.xyz[i] = v.point.coords[i];
+			//Normal
+			point.normal[i] = v.data.template data<0>().coords[i];
+		}
+	}
+};
+
+template< typename Real, unsigned int Dim >
+struct VertexDataSetter
+{
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real, PointStreamColor< Real > > > > PlyVertexWithNormalAndColor;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real > > > PlyVertexWithNormal;
+
+	template< typename Vertex >
+	static void Set(Vertex &v, Poisson::Point<Real> &point)
+	{
+		ERROR_OUT("Unrecognized vertex type");
+	}
+	template<>
+	static void Set(PlyVertexWithNormalAndColor &v, Poisson::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			v.point.coords[i] = point.xyz[i];
+			//Normal
+			v.data.template data<0>().coords[i] = point.normal[i];
+			//Color 
+			std::get< 0 >(v.data.template data<1>()).data().coords[i] = point.color[i];
+		}
+	}
+	template<>
+	static void Set(PlyVertexWithNormal &v, Poisson::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			v.point.coords[i] = point.xyz[i];
+			//Normal
+			v.data.template data<0>().coords[i] = point.normal[i];
+		}
+	}
+};
+
 MessageWriter messageWriter;
 
 const float DefaultPointWeightMultiplier = 2.f;
@@ -334,7 +440,7 @@ struct SystemDual< Dim , double >
 };
 
 template< typename Vertex , typename Real , typename SetVertexFunction , unsigned int ... FEMSigs , typename ... SampleData >
-void ExtractMesh( UIntPack< FEMSigs ... > , std::tuple< SampleData ... > , FEMTree< sizeof ... ( FEMSigs ) , Real >& tree , const DenseNodeData< Real , UIntPack< FEMSigs ... > >& solution , Real isoValue , const std::vector< typename FEMTree< sizeof ... ( FEMSigs ) , Real >::PointSample >* samples , std::vector< MultiPointStreamData< Real , PointStreamNormal< Real , DEFAULT_DIMENSION > , MultiPointStreamData< Real , SampleData ... > > >* sampleData , const typename FEMTree< sizeof ... ( FEMSigs ) , Real >::template DensityEstimator< WEIGHT_DEGREE >* density , const SetVertexFunction &SetVertex , std::vector< std::string > &comments , XForm< Real , sizeof...(FEMSigs)+1 > unitCubeToModel )
+void ExtractMesh(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > , std::tuple< SampleData ... > , FEMTree< sizeof ... ( FEMSigs ) , Real >& tree , const DenseNodeData< Real , UIntPack< FEMSigs ... > >& solution , Real isoValue , const std::vector< typename FEMTree< sizeof ... ( FEMSigs ) , Real >::PointSample >* samples , std::vector< MultiPointStreamData< Real , PointStreamNormal< Real , DEFAULT_DIMENSION > , MultiPointStreamData< Real , SampleData ... > > >* sampleData , const typename FEMTree< sizeof ... ( FEMSigs ) , Real >::template DensityEstimator< WEIGHT_DEGREE >* density , const SetVertexFunction &SetVertex , std::vector< std::string > &comments , XForm< Real , sizeof...(FEMSigs)+1 > unitCubeToModel )
 {
 	static const int Dim = sizeof ... ( FEMSigs );
 	typedef UIntPack< FEMSigs ... > Sigs;
@@ -384,10 +490,59 @@ void ExtractMesh( UIntPack< FEMSigs ... > , std::tuple< SampleData ... > , FEMTr
 	if( PolygonMesh.set ) profiler.dumpOutput2( comments , "#         Got polygons:" );
 	else                  profiler.dumpOutput2( comments , "#        Got triangles:" );
 
-	std::vector< std::string > noComments;
-	if( !PlyWritePolygons< Vertex , node_index_type , Real , Dim >( Out.value , mesh , ASCII.set ? PLY_ASCII : PLY_BINARY_NATIVE , NoComments.set ? noComments : comments , unitCubeToModel ) )
-		ERROR_OUT( "Could not write mesh to: " , Out.value );
+	mesh->resetIterator();
 
+	//Get the mesh
+	typename Vertex::Transform _xForm(iXForm);
+	mesh->resetIterator();
+	const auto size_in_core_points = mesh->inCorePoints.size();
+	const auto size_out_core_points = mesh->outOfCorePointCount();
+	//Clear input
+	mesh_in_out.points.clear();
+	mesh_in_out.faces.clear();
+	mesh_in_out.points.reserve(size_in_core_points + size_out_core_points);
+	for (size_t i = 0; i < sizeInCorePoints; i++)
+	{
+		Vertex v = _xForm(mesh->inCorePoints[i]);
+		Poisson::Point<Real> point;
+		VertexDataExtractor<Real, Dim>::Extract(v, point);
+		mesh_in_out.points.emplace_back(point);
+	}
+	for (size_t i = 0; i < sizeOutOfCorePoints; i++)
+	{
+		Vertex v;
+		mesh->nextOutOfCorePoint(v);
+		v = _xForm(v);
+		Poisson::Point<Real> point;
+		VertexDataExtractor<Real, Dim>::Extract(v, point);
+		mesh_in_out.points.emplace_back(point);
+	}
+
+	//Write faces
+	std::vector< CoredVertexIndex< node_index_type > > polygon;
+	const auto size_faces = mesh->polygonCount();
+	unsigned int index_vertex;
+	mesh_in_out.faces.reserve(size_faces);
+	for (size_t i = 0; i < size_faces; i++)
+	{
+		Poisson::Face face;
+		mesh->nextPolygon(polygon);
+		const auto size_polygon = polygon.size();
+		for (size_t j = 0; j < size_polygon; j++)
+		{
+			if (polygon[j].inCore)
+			{
+				index_vertex = polygon[j].idx;
+			}
+			else
+			{
+				index_vertex = polygon[j].idx + mesh->inCorePoints.size();
+			}
+			//Add the pointer to the vertex inside the face
+			face.point_indices[j] = index_vertex;
+		}
+		mesh_in_out.faces.emplace_back(face);
+	}
 	delete mesh;
 }
 
@@ -460,7 +615,7 @@ void WriteGrid( const char *fileName , ConstPointer( Real ) values , unsigned in
 }
 
 template< class Real , typename ... SampleData , unsigned int ... FEMSigs >
-void Execute( int argc , char* argv[] , UIntPack< FEMSigs ... > )
+void Execute(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > )
 {
 	static const int Dim = sizeof ... ( FEMSigs );
 	typedef UIntPack< FEMSigs ... > Sigs;
@@ -542,29 +697,23 @@ void Execute( int argc , char* argv[] , UIntPack< FEMSigs ... > )
 	{
 		profiler.start();
 		InputPointStream* pointStream;
-		char* ext = GetFileExtension( In.value );
 		sampleData = new std::vector< TotalPointSampleData >();
 		std::vector< std::pair< Point< Real , Dim > , TotalPointSampleData > > inCorePoints;
-		if( InCore.set )
-		{
-			InputPointStream *_pointStream;
-			if     ( !strcasecmp( ext , "bnpts" ) ) _pointStream = new BinaryInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::ReadBinary );
-			else if( !strcasecmp( ext , "ply"   ) ) _pointStream = new    PLYInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::PlyReadProperties() , TotalPointSampleData::PlyReadNum , TotalPointSampleData::ValidPlyReadProperties );
-			else                                    _pointStream = new  ASCIIInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::ReadASCII );
-			Point< Real , Dim > p;
-			TotalPointSampleData d;
-			while( _pointStream->nextPoint( p , d ) ) inCorePoints.push_back( std::pair< Point< Real , Dim > , TotalPointSampleData >( p , d ) );
-			delete _pointStream;
 
-			pointStream = new MemoryInputPointStreamWithData< Real , Dim , TotalPointSampleData >( inCorePoints.size() , &inCorePoints[0] );
-		}
-		else
+		//Copy points
 		{
-			if     ( !strcasecmp( ext , "bnpts" ) ) pointStream = new BinaryInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::ReadBinary );
-			else if( !strcasecmp( ext , "ply"   ) ) pointStream = new    PLYInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::PlyReadProperties() , TotalPointSampleData::PlyReadNum , TotalPointSampleData::ValidPlyReadProperties );
-			else                                    pointStream = new  ASCIIInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::ReadASCII );
+			for (const auto& point : mesh_in_out.points)
+			{
+				Vertex v;
+				VertexDataSetter<Real, Dim>::Set(v, *point);
+				std::pair< Point< Real, Dim >, TotalPointSampleData > p;
+				std::get<0>(p) = v.point;
+				std::get<1>(p) = v.data;
+				inCorePoints.push_back(p);
+			}
 		}
-		delete[] ext;
+
+		pointStream = new MemoryInputPointStreamWithData< Real, Dim, TotalPointSampleData >(inCorePoints.size(), &inCorePoints[0]);
 		typename TotalPointSampleData::Transform _modelToUnitCube( modelToUnitCube );
 		XInputPointStream _pointStream( [&]( Point< Real , Dim >& p , TotalPointSampleData& d ){ p = modelToUnitCube*p , d = _modelToUnitCube(d); } , *pointStream );
 		if( Width.value>0 ) modelToUnitCube = GetPointXForm< Real , Dim >( _pointStream , Width.value , (Real)( Scale.value>0 ? Scale.value : 1. ) , Depth.value ) * modelToUnitCube;
@@ -905,167 +1054,189 @@ void Execute( int argc , char* argv[] , UIntPack< FEMSigs ... > )
 		DeletePointer( values );
 	}
 
-	if( Out.set )
+	if (Normals.value)
 	{
-		if( Normals.value )
+		if (Density.set)
 		{
-			if( Density.set )
+			typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, AdditionalPointSampleData > > Vertex;
+			if (Normals.value == NORMALS_SAMPLES)
 			{
-				typedef PlyVertexWithData< Real , Dim , MultiPointStreamData< Real , PointStreamNormal< Real , Dim > , PointStreamValue< Real > , AdditionalPointSampleData > > Vertex;
-				if( Normals.value==NORMALS_SAMPLES )
-				{
-					auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > g , Real w , TotalPointSampleData d ){ v.point = p , v.data.template data<0>() = d.template data<0>() , v.data.template data<1>() = w , v.data.template data<2>() = d.template data<1>(); };
-					ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
-				}
-				else if( Normals.value==NORMALS_GRADIENTS )
-				{
-					auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > g , Real w , TotalPointSampleData d ){ v.point = p , v.data.template data<0>() = -g/(1<<Depth.value) , v.data.template data<1>() = w , v.data.template data<2>() = d.template data<1>(); };
-					ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
-				}
+				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = d.template data<0>(), v.data.template data<1>() = w, v.data.template data<2>() = d.template data<1>(); };
+				ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
-			else
+			else if (Normals.value == NORMALS_GRADIENTS)
 			{
-				typedef PlyVertexWithData< Real , Dim , MultiPointStreamData< Real , PointStreamNormal< Real , Dim > , AdditionalPointSampleData > > Vertex;
-				if( Normals.value==NORMALS_SAMPLES )
-				{
-					auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > g , Real w , TotalPointSampleData d ){ v.point = p                                                 , v.data.template data<0>() = d.template data<0>() , v.data.template data<1>() = d.template data<1>(); };
-					ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
-				}
-				else if( Normals.value==NORMALS_GRADIENTS )
-				{
-					auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > g , Real w , TotalPointSampleData d ){ v.point = p                                                 , v.data.template data<0>() = -g/(1<<Depth.value) , v.data.template data<1>() = d.template data<1>(); };
-					ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
-				}
+				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = -g / (1 << Depth.value), v.data.template data<1>() = w, v.data.template data<2>() = d.template data<1>(); };
+				ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
 		}
 		else
 		{
-			if( Density.set )
+			typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, AdditionalPointSampleData > > Vertex;
+			if (Normals.value == NORMALS_SAMPLES)
 			{
-				typedef PlyVertexWithData< Real , Dim , MultiPointStreamData< Real , PointStreamValue< Real > , AdditionalPointSampleData > > Vertex;
-				auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > g , Real w , TotalPointSampleData d ){ v.point = p , v.data.template data<0>() = w , v.data.template data<1>() = d.template data<1>(); };
-				ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
+				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = d.template data<0>(), v.data.template data<1>() = d.template data<1>(); };
+				ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
-			else
+			else if (Normals.value == NORMALS_GRADIENTS)
 			{
-				typedef PlyVertexWithData< Real , Dim , MultiPointStreamData< Real , AdditionalPointSampleData > > Vertex;
-				auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > n , Real w , TotalPointSampleData d ){ v.point = p , v.data.template data<0>() = d.template data<1>(); };
-				ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
+				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = -g / (1 << Depth.value), v.data.template data<1>() = d.template data<1>(); };
+				ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
 		}
-		if( sampleData ){ delete sampleData ; sampleData = NULL; }
 	}
+	else
+	{
+		if (Density.set)
+		{
+			typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamValue< Real >, AdditionalPointSampleData > > Vertex;
+			auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = w, v.data.template data<1>() = d.template data<1>(); };
+			ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
+		}
+		else
+		{
+			typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, AdditionalPointSampleData > > Vertex;
+			auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > n, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = d.template data<1>(); };
+			ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
+		}
+	}
+	if (sampleData) { delete sampleData; sampleData = NULL; }
 	if( density ) delete density , density = NULL;
 	messageWriter( comments , "#          Total Solve: %9.1f (s), %9.1f (MB)\n" , Time()-startTime , FEMTree< Dim , Real >::MaxMemoryUsage() );
 }
 
 #ifndef FAST_COMPILE
 template< unsigned int Dim , class Real , BoundaryType BType , typename ... SampleData >
-void Execute( int argc , char* argv[] )
+void Execute(Poisson::Mesh<Real>& mesh_in_out)
 {
 	switch( Degree.value )
 	{
-		case 1: return Execute< Real , SampleData ... >( argc , argv , IsotropicUIntPack< Dim , FEMDegreeAndBType< 1 , BType >::Signature >() );
-		case 2: return Execute< Real , SampleData ... >( argc , argv , IsotropicUIntPack< Dim , FEMDegreeAndBType< 2 , BType >::Signature >() );
-//		case 3: return Execute< Real , SampleData ... >( argc , argv , IsotropicUIntPack< Dim , FEMDegreeAndBType< 3 , BType >::Signature >() );
-//		case 4: return Execute< Real , SampleData ... >( argc , argv , IsotropicUIntPack< Dim , FEMDegreeAndBType< 4 , BType >::Signature >() );
+		case 1: return Execute< Real , SampleData ... >( mesh_in_out , IsotropicUIntPack< Dim , FEMDegreeAndBType< 1 , BType >::Signature >() );
+		case 2: return Execute< Real , SampleData ... >( mesh_in_out , IsotropicUIntPack< Dim , FEMDegreeAndBType< 2 , BType >::Signature >() );
+//		case 3: return Execute< Real , SampleData ... >( mesh_in_out , IsotropicUIntPack< Dim , FEMDegreeAndBType< 3 , BType >::Signature >() );
+//		case 4: return Execute< Real , SampleData ... >( mesh_in_out , IsotropicUIntPack< Dim , FEMDegreeAndBType< 4 , BType >::Signature >() );
 		default: ERROR_OUT( "Only B-Splines of degree 1 - 2 are supported" );
 	}
 }
 
 template< unsigned int Dim , class Real , typename ... SampleData >
-void Execute( int argc , char* argv[] )
+void Execute(Poisson::Mesh<Real>& mesh_in_out)
 {
 	switch( BType.value )
 	{
-		case BOUNDARY_FREE+1:      return Execute< Dim , Real , BOUNDARY_FREE      , SampleData ... >( argc , argv );
-		case BOUNDARY_NEUMANN+1:   return Execute< Dim , Real , BOUNDARY_NEUMANN   , SampleData ... >( argc , argv );
-		case BOUNDARY_DIRICHLET+1: return Execute< Dim , Real , BOUNDARY_DIRICHLET , SampleData ... >( argc , argv );
+		case BOUNDARY_FREE+1:      return Execute< Dim , Real , BOUNDARY_FREE      , SampleData ... >( mesh_in_out );
+		case BOUNDARY_NEUMANN+1:   return Execute< Dim , Real , BOUNDARY_NEUMANN   , SampleData ... >( mesh_in_out );
+		case BOUNDARY_DIRICHLET+1: return Execute< Dim , Real , BOUNDARY_DIRICHLET , SampleData ... >( mesh_in_out );
 		default: ERROR_OUT( "Not a valid boundary type: " , BType.value );
 	}
 }
 #endif // !FAST_COMPILE
 
-int main( int argc , char* argv[] )
+template<typename T>
+bool PoissonRecon::compute(Poisson::Mesh<T>& mesh_in_out, const Poisson::Options & options)
 {
 	Timer timer;
 #ifdef USE_SEG_FAULT_HANDLER
-	WARN( "using seg-fault handler" );
+	WARN("using seg-fault handler");
 	StackTracer::exec = argv[0];
-	signal( SIGSEGV , SignalHandler );
+	signal(SIGSEGV, SignalHandler);
 #endif // USE_SEG_FAULT_HANDLER
 #ifdef ARRAY_DEBUG
-	WARN( "Array debugging enabled" );
+	WARN("Array debugging enabled");
 #endif // ARRAY_DEBUG
-	cmdLineParse( argc-1 , &argv[1] , params );
-	if( MaxMemoryGB.value>0 ) SetPeakMemoryMB( MaxMemoryGB.value<<10 );
+	cmdLineParse(argc - 1, &argv[1], params);
+	if (MaxMemoryGB.value > 0) SetPeakMemoryMB(MaxMemoryGB.value << 10);
 	ThreadPool::DefaultChunkSize = ThreadChunkSize.value;
 	ThreadPool::DefaultSchedule = (ThreadPool::ScheduleType)ScheduleType.value;
-	ThreadPool::Init( (ThreadPool::ParallelType)ParallelType.value , Threads.value );
+	ThreadPool::Init((ThreadPool::ParallelType)ParallelType.value, Threads.value);
 
 	messageWriter.echoSTDOUT = Verbose.set;
-	if( !In.set )
+	if (!mesh_in_out)
 	{
-		ShowUsage( argv[0] );
 		return 0;
 	}
-	if( DataX.value<=0 ) Normals.value = NORMALS_NONE , Colors.set = false;
-	if( !BaseDepth.set ) BaseDepth.value = FullDepth.value;
-	if( BaseDepth.value>FullDepth.value )
+	Colors.set = mesh_in_out.has_color;
+	if (mesh_in_out.has_normal)
 	{
-		if( BaseDepth.set ) WARN( "Base depth must be smaller than full depth: " , BaseDepth.value , " <= " , FullDepth.value );
+		Normals.value = NORMALS_SAMPLES;
+	}
+	else
+	{
+		Normals.value = NORMALS_NONE;
+	}
+	//Parameters
+	Depth.value = options.depth;
+	BType.value = options.boundary;
+	Density.set = options.density;
+	if (!BaseDepth.set) BaseDepth.value = FullDepth.value;
+	if (BaseDepth.value > FullDepth.value)
+	{
+		if (BaseDepth.set) WARN("Base depth must be smaller than full depth: ", BaseDepth.value, " <= ", FullDepth.value);
 		BaseDepth.value = FullDepth.value;
 	}
-	if( !SolveDepth.set ) SolveDepth.value = Depth.value;
-	if( SolveDepth.value>Depth.value )
+	if (!SolveDepth.set) SolveDepth.value = Depth.value;
+	if (SolveDepth.value > Depth.value)
 	{
-		WARN( "Solution depth cannot exceed system depth: " , SolveDepth.value , " <= " , Depth.value );
+		WARN("Solution depth cannot exceed system depth: ", SolveDepth.value, " <= ", Depth.value);
 		SolveDepth.value = Depth.value;
 	}
-	if( !KernelDepth.set ) KernelDepth.value = Depth.value-2;
-	if( KernelDepth.value>Depth.value )
+	if (!KernelDepth.set) KernelDepth.value = Depth.value - 2;
+	if (KernelDepth.value > Depth.value)
 	{
-		WARN( "Kernel depth should not exceed depth: " , KernelDepth.name , " <= " , KernelDepth.value );
+		WARN("Kernel depth should not exceed depth: ", KernelDepth.name, " <= ", KernelDepth.value);
 		KernelDepth.value = Depth.value;
 	}
 
-	if( !EnvelopeDepth.set ) EnvelopeDepth.value = BaseDepth.value;
-	if( EnvelopeDepth.value>Depth.value )
+	if (!EnvelopeDepth.set) EnvelopeDepth.value = BaseDepth.value;
+	if (EnvelopeDepth.value > Depth.value)
 	{
-		WARN( EnvelopeDepth.name , " can't be greater than " , Depth.name , ": " , EnvelopeDepth.value , " <= " , Depth.value );
+		WARN(EnvelopeDepth.name, " can't be greater than ", Depth.name, ": ", EnvelopeDepth.value, " <= ", Depth.value);
 		EnvelopeDepth.value = Depth.value;
 	}
-	if( EnvelopeDepth.value<BaseDepth.value )
+	if (EnvelopeDepth.value < BaseDepth.value)
 	{
-		WARN( EnvelopeDepth.name , " can't be less than " , BaseDepth.name , ": " , EnvelopeDepth.value , " >= " , BaseDepth.value );
+		WARN(EnvelopeDepth.name, " can't be less than ", BaseDepth.name, ": ", EnvelopeDepth.value, " >= ", BaseDepth.value);
 		EnvelopeDepth.value = BaseDepth.value;
 	}
-
-#ifdef USE_DOUBLE
-	typedef double Real;
-#else // !USE_DOUBLE
-	typedef float  Real;
-#endif // USE_DOUBLE
+	if (std::is_same<T, double>::value)
+	{
+		typedef double Real;
+	}
+	else
+	{
+		typedef float  Real;
+	}
 
 #ifdef FAST_COMPILE
 	static const int Degree = DEFAULT_FEM_DEGREE;
 	static const BoundaryType BType = DEFAULT_FEM_BOUNDARY;
-	typedef IsotropicUIntPack< DEFAULT_DIMENSION , FEMDegreeAndBType< Degree , BType >::Signature > FEMSigs;
-	WARN( "Compiled for degree-" , Degree , ", boundary-" , BoundaryNames[ BType ] , ", " , sizeof(Real)==4 ? "single" : "double" , "-precision _only_" );
-	if( !PointWeight.set ) PointWeight.value = DefaultPointWeightMultiplier*Degree;
-	if( Colors.set ) Execute< Real , PointStreamColor< Real > >( argc , argv , FEMSigs() );
-	else             Execute< Real >( argc , argv , FEMSigs() );
+	typedef IsotropicUIntPack< DEFAULT_DIMENSION, FEMDegreeAndBType< Degree, BType >::Signature > FEMSigs;
+	WARN("Compiled for degree-", Degree, ", boundary-", BoundaryNames[BType], ", ", sizeof(Real) == 4 ? "single" : "double", "-precision _only_");
+	if (!PointWeight.set) PointWeight.value = DefaultPointWeightMultiplier * Degree;
+	if (Colors.set) Execute< Real, PointStreamColor< Real > >(argc, argv, FEMSigs());
+	else             Execute< Real >(argc, argv, FEMSigs());
 #else // !FAST_COMPILE
-	if( !PointWeight.set ) PointWeight.value = DefaultPointWeightMultiplier*Degree.value;
-	if( Colors.set ) Execute< DEFAULT_DIMENSION , Real , PointStreamColor< float > >( argc , argv );
-	else             Execute< DEFAULT_DIMENSION , Real >( argc , argv );
-#endif // FAST_COMPILE
-	if( Performance.set )
+	if (!PointWeight.set) PointWeight.value = DefaultPointWeightMultiplier * Degree.value;
+	if (Colors.set)
 	{
-		printf( "Time (Wall/CPU): %.2f / %.2f\n" , timer.wallTime() , timer.cpuTime() );
-		printf( "Peak Memory (MB): %d\n" , MemoryInfo::PeakMemoryUsageMB() );
+		Execute< DEFAULT_DIMENSION, Real, PointStreamColor< float > >(mesh_in_out);
+	}
+	else
+	{
+		Execute< DEFAULT_DIMENSION, Real >(mesh_in_out);
+	}
+#endif // FAST_COMPILE
+	if (Performance.set)
+	{
+		printf("Time (Wall/CPU): %.2f / %.2f\n", timer.wallTime(), timer.cpuTime());
+		printf("Peak Memory (MB): %d\n", MemoryInfo::PeakMemoryUsageMB());
 	}
 
 	ThreadPool::Terminate();
 	return EXIT_SUCCESS;
+}
+
+
+int main(int argc, char* argv[])
+{
 }

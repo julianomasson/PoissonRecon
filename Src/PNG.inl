@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <vector>
 #ifdef _WIN32
-#include "PNG/png.h"
+#include "../PNG/src/png.h"
 #else // !_WIN32
 #include <png.h>
 #endif // _WIN32
