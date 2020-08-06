@@ -3,38 +3,17 @@
 #else
 #define SSDRECON_API __declspec(dllimport)
 #endif
-
 #pragma once
 
 #include <vector>
+#include "MeshData.h"
 
-namespace SSD
+class SSDRECON_API SSDRecon
 {
-	template <typename T>
-	struct Point
-	{
-		T xyz[3];
-		T normal[3];
-		unsigned char color[3];
-		T value;
-	};
+public:
+	SSDRecon(void) {};
 
-	struct Face
-	{
-		unsigned int point_indices[3];
-	};
-
-	template <typename T>
-	struct Mesh
-	{
-		std::vector< Point<T> > points;
-		std::vector< Face > faces;
-		//Parameters
-		bool has_normal = false;
-		bool has_color = false;
-	};
-
-	// Define the poisson options
+	// Define the SSD options
 	struct Options
 	{
 		Options() {}
@@ -46,13 +25,8 @@ namespace SSD
 		//Generate the value scalar
 		bool density;
 	};
-}
 
-class SSDRECON_API SSDRecon
-{
-public:
-	SSDRecon(void) {};
 	template <typename T>
-	bool compute(SSD::Mesh<T>& mesh_in_out, const SSD::Options& options);
+	bool compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Options& options);
 };
 

@@ -51,6 +51,7 @@ DAMAGE.
 #include "RegularGrid.h"
 
 #include "SSDRecon.h"
+#include "MeshDataOperations.h"
 
 MessageWriter messageWriter;
 
@@ -349,7 +350,7 @@ struct SystemDual< Dim , double , TotalPointSampleData >
 };
 
 template< typename Vertex , typename Real , typename SetVertexFunction , unsigned int ... FEMSigs , typename ... SampleData >
-void ExtractMesh( UIntPack< FEMSigs ... > , std::tuple< SampleData ... > , FEMTree< sizeof ... ( FEMSigs ) , Real >& tree , const DenseNodeData< Real , UIntPack< FEMSigs ... > >& solution , Real isoValue , const std::vector< typename FEMTree< sizeof ... ( FEMSigs ) , Real >::PointSample >* samples , std::vector< MultiPointStreamData< Real , PointStreamNormal< Real , DEFAULT_DIMENSION > , MultiPointStreamData< Real , SampleData ... > > >* sampleData , const typename FEMTree< sizeof ... ( FEMSigs ) , Real >::template DensityEstimator< WEIGHT_DEGREE >* density , const SetVertexFunction &SetVertex , std::vector< std::string > &comments , XForm< Real , sizeof...(FEMSigs)+1 > unitCubeToModel )
+void ExtractMesh(AdaptativeSolvers::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > , std::tuple< SampleData ... > , FEMTree< sizeof ... ( FEMSigs ) , Real >& tree , const DenseNodeData< Real , UIntPack< FEMSigs ... > >& solution , Real isoValue , const std::vector< typename FEMTree< sizeof ... ( FEMSigs ) , Real >::PointSample >* samples , std::vector< MultiPointStreamData< Real , PointStreamNormal< Real , DEFAULT_DIMENSION > , MultiPointStreamData< Real , SampleData ... > > >* sampleData , const typename FEMTree< sizeof ... ( FEMSigs ) , Real >::template DensityEstimator< WEIGHT_DEGREE >* density , const SetVertexFunction &SetVertex , std::vector< std::string > &comments , XForm< Real , sizeof...(FEMSigs)+1 > unitCubeToModel )
 {
 	static const int Dim = sizeof ... ( FEMSigs );
 	typedef UIntPack< FEMSigs ... > Sigs;
@@ -399,9 +400,8 @@ void ExtractMesh( UIntPack< FEMSigs ... > , std::tuple< SampleData ... > , FEMTr
 	if( PolygonMesh.set ) profiler.dumpOutput2( comments , "#         Got polygons:" );
 	else                  profiler.dumpOutput2( comments , "#        Got triangles:" );
 
-	std::vector< std::string > noComments;
-	if( !PlyWritePolygons< Vertex , node_index_type , Real , Dim >( Out.value , mesh , ASCII.set ? PLY_ASCII : PLY_BINARY_NATIVE , NoComments.set ? noComments : comments , unitCubeToModel ) )
-		ERROR_OUT( "Could not write mesh to: " , Out.value );
+	SetGetMesh::GetMesh<Vertex, Real, node_index_type>(mesh, mesh_in_out);
+	mesh_in_out.has_value = Density.set;
 	delete mesh;
 }
 
@@ -474,7 +474,7 @@ void WriteGrid( const char *fileName , ConstPointer( Real ) values , unsigned in
 }
 
 template< class Real , typename ... SampleData , unsigned int ... FEMSigs >
-void Execute( int argc , char* argv[] , UIntPack< FEMSigs ... > )
+void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > )
 {
 	static const int Dim = sizeof ... ( FEMSigs );
 	typedef UIntPack< FEMSigs ... > Sigs;
@@ -556,29 +556,11 @@ void Execute( int argc , char* argv[] , UIntPack< FEMSigs ... > )
 	{
 		profiler.start();
 		InputPointStream* pointStream;
-		char* ext = GetFileExtension( In.value );
 		sampleData = new std::vector< TotalPointSampleData >();
 		std::vector< std::pair< Point< Real , Dim > , TotalPointSampleData > > inCorePoints;
-		if( InCore.set )
-		{
-			InputPointStream *_pointStream;
-			if     ( !strcasecmp( ext , "bnpts" ) ) _pointStream = new BinaryInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::ReadBinary );
-			else if( !strcasecmp( ext , "ply"   ) ) _pointStream = new    PLYInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::PlyReadProperties() , TotalPointSampleData::PlyReadNum , TotalPointSampleData::ValidPlyReadProperties );
-			else                                    _pointStream = new  ASCIIInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::ReadASCII );
-			Point< Real , Dim > p;
-			TotalPointSampleData d;
-			while( _pointStream->nextPoint( p , d ) ) inCorePoints.push_back( std::pair< Point< Real , Dim > , TotalPointSampleData >( p , d ) );
-			delete _pointStream;
-
-			pointStream = new MemoryInputPointStreamWithData< Real , Dim , TotalPointSampleData >( inCorePoints.size() , &inCorePoints[0] );
-		}
-		else
-		{
-			if     ( !strcasecmp( ext , "bnpts" ) ) pointStream = new BinaryInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::ReadBinary );
-			else if( !strcasecmp( ext , "ply"   ) ) pointStream = new    PLYInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::PlyReadProperties() , TotalPointSampleData::PlyReadNum , TotalPointSampleData::ValidPlyReadProperties );
-			else                                    pointStream = new  ASCIIInputPointStreamWithData< Real , Dim , TotalPointSampleData >( In.value , TotalPointSampleData::ReadASCII );
-		}
-		delete[] ext;
+		//Copy points
+		SetGetMesh::SetPoints<Vertex, Real, Dim, TotalPointSampleData>(mesh_in_out, inCorePoints);
+		pointStream = new MemoryInputPointStreamWithData< Real, Dim, TotalPointSampleData >(inCorePoints.size(), &inCorePoints[0]);
 		typename TotalPointSampleData::Transform _modelToUnitCube( modelToUnitCube );
 		XInputPointStream _pointStream( [&]( Point< Real , Dim >& p , TotalPointSampleData& d ){ p = modelToUnitCube*p , d = _modelToUnitCube(d); } , *pointStream );
 		if( Width.value>0 ) modelToUnitCube = GetPointXForm< Real , Dim >( _pointStream , Width.value , (Real)( Scale.value>0 ? Scale.value : 1. ) , Depth.value ) * modelToUnitCube;
@@ -750,56 +732,53 @@ void Execute( int argc , char* argv[] , UIntPack< FEMSigs ... > )
 		DeletePointer( values );
 	}
 
-	if( Out.set )
+	if (Normals.value)
 	{
-		if( Normals.value )
+		if (Density.set)
 		{
-			if( Density.set )
+			typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, AdditionalPointSampleData > > Vertex;
+			if (Normals.value == NORMALS_SAMPLES)
 			{
-				typedef PlyVertexWithData< Real , Dim , MultiPointStreamData< Real , PointStreamNormal< Real , Dim > , PointStreamValue< Real > , AdditionalPointSampleData > > Vertex;
-				if( Normals.value==NORMALS_SAMPLES )
-				{
-					auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > g , Real w , TotalPointSampleData d ){ v.point = p , v.data.template data<0>() = d.template data<0>() , v.data.template data<1>() = w , v.data.template data<2>() = d.template data<1>(); };
-					ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
-				}
-				else if( Normals.value==NORMALS_GRADIENTS )
-				{
-					auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > g , Real w , TotalPointSampleData d ){ v.point = p , v.data.template data<0>() = -g/(1<<Depth.value) , v.data.template data<1>() = w , v.data.template data<2>() = d.template data<1>(); };
-					ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
-				}
+				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = d.template data<0>(), v.data.template data<1>() = w, v.data.template data<2>() = d.template data<1>(); };
+				ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
-			else
+			else if (Normals.value == NORMALS_GRADIENTS)
 			{
-				typedef PlyVertexWithData< Real , Dim , MultiPointStreamData< Real , PointStreamNormal< Real , Dim > , AdditionalPointSampleData > > Vertex;
-				if( Normals.value==NORMALS_SAMPLES )
-				{
-					auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > g , Real w , TotalPointSampleData d ){ v.point = p , v.data.template data<0>() = d.template data<0>() , v.data.template data<1>() = d.template data<1>(); };
-					ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
-				}
-				else if( Normals.value==NORMALS_GRADIENTS )
-				{
-					auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > g , Real w , TotalPointSampleData d ){ v.point = p , v.data.template data<0>() = -g/(1<<Depth.value) , v.data.template data<1>() = d.template data<1>(); };
-					ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
-				}
+				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = -g / (1 << Depth.value), v.data.template data<1>() = w, v.data.template data<2>() = d.template data<1>(); };
+				ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
 		}
 		else
 		{
-			if( Density.set )
+			typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, AdditionalPointSampleData > > Vertex;
+			if (Normals.value == NORMALS_SAMPLES)
 			{
-				typedef PlyVertexWithData< Real , Dim , MultiPointStreamData< Real , PointStreamValue< Real > , AdditionalPointSampleData > > Vertex;
-				auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > g , Real w , TotalPointSampleData d ){ v.point = p , v.data.template data<0>() = w , v.data.template data<1>() = d.template data<1>(); };
-				ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
+				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = d.template data<0>(), v.data.template data<1>() = d.template data<1>(); };
+				ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
-			else
+			else if (Normals.value == NORMALS_GRADIENTS)
 			{
-				typedef PlyVertexWithData< Real , Dim , MultiPointStreamData< Real , AdditionalPointSampleData > > Vertex;
-				auto SetVertex = []( Vertex& v , Point< Real , Dim > p , Point< Real , Dim > n , Real w , TotalPointSampleData d ){ v.point = p , v.data.template data<0>() = d.template data<1>(); };
-				ExtractMesh< Vertex >( UIntPack< FEMSigs ... >() , std::tuple< SampleData ... >() , tree , solution , isoValue , samples , sampleData , density , SetVertex , comments , unitCubeToModel );
+				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = -g / (1 << Depth.value), v.data.template data<1>() = d.template data<1>(); };
+				ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
 		}
-		if( sampleData ){ delete sampleData ; sampleData = NULL; }
 	}
+	else
+	{
+		if (Density.set)
+		{
+			typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamValue< Real >, AdditionalPointSampleData > > Vertex;
+			auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = w, v.data.template data<1>() = d.template data<1>(); };
+			ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
+		}
+		else
+		{
+			typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, AdditionalPointSampleData > > Vertex;
+			auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > n, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = d.template data<1>(); };
+			ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
+		}
+	}
+	if (sampleData) { delete sampleData; sampleData = NULL; }
 	if( density ) delete density , density = NULL;
 	messageWriter( comments , "#          Total Solve: %9.1f (s), %9.1f (MB)\n" , Time()-startTime , FEMTree< Dim , Real >::MaxMemoryUsage() );
 }
@@ -807,26 +786,26 @@ void Execute( int argc , char* argv[] , UIntPack< FEMSigs ... > )
 #ifndef FAST_COMPILE
 
 template< unsigned int Dim , class Real , BoundaryType BType , typename ... SampleData >
-void Execute( int argc , char* argv[] )
+void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out)
 {
 	switch( Degree.value )
 	{
-//	case 1: return Execute< Real , SampleData ... >( argc , argv , IsotropicUIntPack< Dim , FEMDegreeAndBType< 1 , BType >::Signature >() );
-	case 2: return Execute< Real , SampleData ... >( argc , argv , IsotropicUIntPack< Dim , FEMDegreeAndBType< 2 , BType >::Signature >() );
-	case 3: return Execute< Real , SampleData ... >( argc , argv , IsotropicUIntPack< Dim , FEMDegreeAndBType< 3 , BType >::Signature >() );
-//	case 4: return Execute< Real , SampleData ... >( argc , argv , IsotropicUIntPack< Dim , FEMDegreeAndBType< 4 , BType >::Signature >() );
+//	case 1: return Execute< Real , SampleData ... >( mesh_in_out , IsotropicUIntPack< Dim , FEMDegreeAndBType< 1 , BType >::Signature >() );
+	case 2: return Execute< Real , SampleData ... >( mesh_in_out , IsotropicUIntPack< Dim , FEMDegreeAndBType< 2 , BType >::Signature >() );
+	case 3: return Execute< Real , SampleData ... >( mesh_in_out , IsotropicUIntPack< Dim , FEMDegreeAndBType< 3 , BType >::Signature >() );
+//	case 4: return Execute< Real , SampleData ... >( mesh_in_out , IsotropicUIntPack< Dim , FEMDegreeAndBType< 4 , BType >::Signature >() );
 	default: ERROR_OUT( "Only B-Splines of degree 1 - 2 are supported" );
 	}
 }
 
 template< unsigned int Dim , class Real , typename ... SampleData >
-void Execute( int argc , char* argv[] )
+void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out)
 {
 	switch( BType.value )
 	{
-	case BOUNDARY_FREE+1:      return Execute< Dim , Real , BOUNDARY_FREE      , SampleData ... >( argc , argv );
-	case BOUNDARY_NEUMANN+1:   return Execute< Dim , Real , BOUNDARY_NEUMANN   , SampleData ... >( argc , argv );
-	case BOUNDARY_DIRICHLET+1: return Execute< Dim , Real , BOUNDARY_DIRICHLET , SampleData ... >( argc , argv );
+	case BOUNDARY_FREE+1:      return Execute< Dim , Real , BOUNDARY_FREE      , SampleData ... >( mesh_in_out );
+	case BOUNDARY_NEUMANN+1:   return Execute< Dim , Real , BOUNDARY_NEUMANN   , SampleData ... >( mesh_in_out );
+	case BOUNDARY_DIRICHLET+1: return Execute< Dim , Real , BOUNDARY_DIRICHLET , SampleData ... >( mesh_in_out );
 	default: ERROR_OUT( "Not a valid boundary type: " , BType.value );
 	}
 
@@ -834,7 +813,7 @@ void Execute( int argc , char* argv[] )
 #endif // !FAST_COMPILE
 
 template<typename T>
-inline bool SSDRecon::compute(SSD::Mesh<T>& mesh_in_out, const SSD::Options & options)
+inline bool SSDRecon::compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Options & options)
 {
 	Timer timer;
 #ifdef USE_SEG_FAULT_HANDLER
@@ -854,11 +833,23 @@ inline bool SSDRecon::compute(SSD::Mesh<T>& mesh_in_out, const SSD::Options & op
 
 	if (!mesh_in_out)
 	{
-		return 0;
+		return EXIT_FAILURE;
 	}
+	Colors.set = mesh_in_out.has_color;
+	if (mesh_in_out.has_normal)
+	{
+		Normals.value = NORMALS_SAMPLES;
+	}
+	else
+	{
+		Normals.value = NORMALS_NONE;
+	}
+	//Parameters
+	Depth.value = options.depth;
+	BType.value = options.boundary;
+	Density.set = options.density;
 	if (GradientWeight.value <= 0) ERROR_OUT("Gradient weight must be positive: ", GradientWeight.value, "> 0");
 	if (BiLapWeight.value <= 0) ERROR_OUT("Bi-Laplacian weight must be positive: ", BiLapWeight.value, " > 0");
-	if (DataX.value <= 0) Normals.value = NORMALS_NONE, Colors.set = false;
 	if (!BaseDepth.set) BaseDepth.value = FullDepth.value;
 	if (BaseDepth.value > FullDepth.value)
 	{
@@ -876,11 +867,14 @@ inline bool SSDRecon::compute(SSD::Mesh<T>& mesh_in_out, const SSD::Options & op
 	GradientWeight.value *= (float)BaseSSDWeights[1];
 	BiLapWeight.value *= (float)BaseSSDWeights[2];
 
-#ifdef USE_DOUBLE
-	typedef double Real;
-#else // !USE_DOUBLE
-	typedef float  Real;
-#endif // USE_DOUBLE
+	if (std::is_same<T, double>::value)
+	{
+		typedef double Real;
+	}
+	else
+	{
+		typedef float  Real;
+	}
 
 #ifdef FAST_COMPILE
 	static const int Degree = DEFAULT_FEM_DEGREE;
@@ -890,8 +884,8 @@ inline bool SSDRecon::compute(SSD::Mesh<T>& mesh_in_out, const SSD::Options & op
 	if (Colors.set) Execute< Real, PointStreamColor< Real > >(argc, argv, FEMSigs());
 	else             Execute< Real >(argc, argv, FEMSigs());
 #else // !FAST_COMPILE
-	if (Colors.set) Execute< DEFAULT_DIMENSION, Real, PointStreamColor< float > >(argc, argv);
-	else             Execute< DEFAULT_DIMENSION, Real >(argc, argv);
+	if (Colors.set) Execute< DEFAULT_DIMENSION, Real, PointStreamColor< float > >(mesh_in_out);
+	else             Execute< DEFAULT_DIMENSION, Real >(mesh_in_out);
 #endif // FAST_COMPILE
 	if (Performance.set)
 	{

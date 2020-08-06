@@ -3,36 +3,15 @@
 #else
 #define POISSONRECON_API __declspec(dllimport)
 #endif
-
 #pragma once
 
 #include <vector>
+#include "MeshData.h"
 
-namespace Poisson
+class POISSONRECON_API PoissonRecon
 {
-	template <typename T>
-	struct Point
-	{
-		T xyz[3];
-		T normal[3];
-		unsigned char color[3];
-		T value;
-	};
-
-	struct Face
-	{
-		unsigned int point_indices[3];
-	};
-
-	template <typename T>
-	struct Mesh
-	{
-		std::vector< Point<T> > points;
-		std::vector< Face > faces;
-		//Parameters
-		bool has_normal = false;
-		bool has_color = false;
-	};
+public:
+	PoissonRecon(void) {};
 
 	// Define the poisson options
 	struct Options
@@ -46,12 +25,7 @@ namespace Poisson
 		//Generate the value scalar
 		bool density;
 	};
-}
 
-class POISSONRECON_API PoissonRecon
-{
-public:
-	PoissonRecon(void) {};
 	template <typename T>
-	bool compute(Poisson::Mesh<T>& mesh_in_out, const Poisson::Options& options);
+	bool compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Options& options);
 };

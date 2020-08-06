@@ -42,6 +42,9 @@ DAMAGE.
 #include "Ply.h"
 #include "PointStreamData.h"
 
+#include "SurfaceTrimmer.h"
+#include "MeshDataOperations.h"
+
 MessageWriter messageWriter;
 
 
@@ -290,16 +293,14 @@ void SetConnectedComponents( const std::vector< std::vector< Index > >& polygons
 }
 
 template< typename Index , typename ... VertexData >
-int Execute( void )
+int Execute(AdaptativeSolvers::Mesh<float>& mesh_in_out)
 {
 	typedef PlyVertexWithData< float , DEFAULT_DIMENSION , MultiPointStreamData< float , PointStreamValue< float > , VertexData ... > > Vertex;
 	float min , max;
 	std::vector< Vertex > vertices;
 	std::vector< std::vector< Index > > polygons;
 
-	int ft;
-	std::vector< std::string > comments;
-	PlyReadPolygons< Vertex >( In.value , vertices , polygons , Vertex::PlyReadProperties() , Vertex::PlyReadNum , ft , comments );
+	SetGetMesh::SetMesh<Vertex, float, Index>(mesh_in_out, vertices, polygons);
 
 	for( int i=0 ; i<Smooth.value ; i++ ) SmoothValues< float , Index >( vertices , polygons );
 	min = max = vertices[0].data.template data<0>();
@@ -309,6 +310,7 @@ int Execute( void )
 	std::vector< std::vector< Index > > ltPolygons , gtPolygons;
 	std::vector< bool > ltFlags , gtFlags;
 
+	std::vector< std::string > comments;
 	messageWriter( comments , "*********************************************\n" );
 	messageWriter( comments , "*********************************************\n" );
 	messageWriter( comments , "** Running Surface Trimmer (Version %s) **\n" , VERSION );
@@ -381,45 +383,32 @@ int Execute( void )
 	char comment[1024];
 	sprintf( comment , "#Trimmed In: %9.1f (s)" , Time()-t );
 	comments.push_back( comment );
-	if( Out.set )
-		if( !PlyWritePolygons< Vertex >( Out.value , vertices , gtPolygons , Vertex::PlyWriteProperties() , Vertex::PlyWriteNum , ft , comments ) )
-			ERROR_OUT( "Could not write mesh to: " , Out.value );
+
+	SetGetMesh::GetMesh<Vertex, float, Index>(vertices, gtPolygons, mesh_in_out);
 	
 	return EXIT_SUCCESS;
 }
-int main( int argc , char* argv[] )
+inline bool SurfaceTrimmer::compute(AdaptativeSolvers::Mesh<float>& mesh_in_out, const Options & options)
 {
-	cmdLineParse( argc-1 , &argv[1] , params );
-	messageWriter.echoSTDOUT = Verbose.set;
-
-	if( !In.set || !Trim.set )
+	if (mesh_in_out.points.size() == 0 || !mesh_in_out.has_value)
 	{
-		ShowUsage( argv[0] );
 		return EXIT_FAILURE;
 	}
-	typedef MultiPointStreamData< float , PointStreamValue< float > , PointStreamNormal< float , DEFAULT_DIMENSION > , PointStreamColor< float > > VertexData;
-	typedef PlyVertexWithData< float , DEFAULT_DIMENSION , VertexData > Vertex;
-	bool readFlags[ Vertex::PlyReadNum ];
-	if( !PlyReadHeader( In.value , Vertex::PlyReadProperties() , Vertex::PlyReadNum , readFlags ) ) ERROR_OUT( "Failed to read ply header: " , In.value );
+	bool hasNormal = mesh_in_out.has_normal;
+	bool hasColor = mesh_in_out.has_color;
 
-	bool hasValue  = VertexData::ValidPlyReadProperties< 0 >( readFlags + DEFAULT_DIMENSION );
-	bool hasNormal = VertexData::ValidPlyReadProperties< 1 >( readFlags + DEFAULT_DIMENSION );
-	bool hasColor  = VertexData::ValidPlyReadProperties< 2 >( readFlags + DEFAULT_DIMENSION );
-
-	if( !hasValue ) ERROR_OUT( "Ply file does not contain values" );
-
-	if( Long.set )
-		if( hasColor )
-			if( hasNormal ) return Execute< long long , PointStreamNormal< float , DEFAULT_DIMENSION > , PointStreamColor< float > >();
-			else            return Execute< long long ,                                                  PointStreamColor< float > >();
+	if (Long.set)
+		if (hasColor)
+			if (hasNormal) return Execute< long long, PointStreamNormal< float, DEFAULT_DIMENSION >, PointStreamColor< float > >(mesh_in_out);
+			else           return Execute< long long, PointStreamColor< float > >(mesh_in_out);
 		else
-			if( hasNormal ) return Execute< long long , PointStreamNormal< float , DEFAULT_DIMENSION >                             >();
-			else            return Execute< long long                                                                              >();
+			if (hasNormal) return Execute< long long, PointStreamNormal< float, DEFAULT_DIMENSION > >(mesh_in_out);
+			else           return Execute< long long >(mesh_in_out);
 	else
-		if( hasColor )
-			if( hasNormal ) return Execute< int , PointStreamNormal< float , DEFAULT_DIMENSION > , PointStreamColor< float > >();
-			else            return Execute< int ,                                                  PointStreamColor< float > >();
+		if (hasColor)
+			if (hasNormal) return Execute< int, PointStreamNormal< float, DEFAULT_DIMENSION >, PointStreamColor< float > >(mesh_in_out);
+			else            return Execute< int, PointStreamColor< float > >(mesh_in_out);
 		else
-			if( hasNormal ) return Execute< int , PointStreamNormal< float , DEFAULT_DIMENSION >                             >();
-			else            return Execute< int                                                                              >();
+			if (hasNormal) return Execute< int, PointStreamNormal< float, DEFAULT_DIMENSION > >(mesh_in_out);
+			else            return Execute< int >(mesh_in_out);
 }

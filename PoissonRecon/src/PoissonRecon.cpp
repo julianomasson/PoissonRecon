@@ -51,110 +51,7 @@ DAMAGE.
 #include "RegularGrid.h"
 
 #include "PoissonRecon.h"
-
-template< typename Real, unsigned int Dim >
-struct VertexDataExtractor
-{
-	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, MultiPointStreamData< Real, PointStreamColor< Real > > > > PlyVertexWithNormalValueAndColor;
-	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, MultiPointStreamData< Real > > > PlyVertexWithNormalAndValue;
-	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real, PointStreamColor< Real > > > > PlyVertexWithNormalAndColor;
-	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real > > > PlyVertexWithNormal;
-
-	template< typename Vertex >
-	static void Extract(const Vertex &v, Poisson::Point<Real> &point)
-	{
-		ERROR_OUT("Unrecognized vertex type");
-	}
-	template<>
-	static void Extract(const PlyVertexWithNormalValueAndColor &v, Poisson::Point<Real> &point)
-	{
-		for (size_t i = 0; i < 3; i++)
-		{
-			//Point
-			point.xyz[i] = v.point.coords[i];
-			//Normal
-			point.normal[i] = v.data.template data<0>().coords[i];
-			//Color 
-			point.color[i] = std::get< 0 >(v.data.template data<2>()).data().coords[i];
-			//Value
-			point.value = v.data.template data<1>();
-		}
-	}
-	template<>
-	static void Extract(const PlyVertexWithNormalAndValue &v, Poisson::Point<Real> &point)
-	{
-		for (size_t i = 0; i < 3; i++)
-		{
-			//Point
-			point.xyz[i] = v.point.coords[i];
-			//Normal
-			point.normal[i] = v.data.template data<0>().coords[i];
-			//Value
-			point.value = v.data.template data<1>();
-		}
-	}
-	template<>
-	static void Extract(const PlyVertexWithNormalAndColor &v, Poisson::Point<Real> &point)
-	{
-		for (size_t i = 0; i < 3; i++)
-		{
-			//Point
-			point.xyz[i] = v.point.coords[i];
-			//Normal
-			point.normal[i] = v.data.template data<0>().coords[i];
-			//Color 
-			point.color[i] = std::get< 0 >(v.data.template data<1>()).data().coords[i];
-		}
-	}
-	template<>
-	static void Extract(const PlyVertexWithNormal &v, Poisson::Point<Real> &point)
-	{
-		for (size_t i = 0; i < 3; i++)
-		{
-			//Point
-			point.xyz[i] = v.point.coords[i];
-			//Normal
-			point.normal[i] = v.data.template data<0>().coords[i];
-		}
-	}
-};
-
-template< typename Real, unsigned int Dim >
-struct VertexDataSetter
-{
-	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real, PointStreamColor< Real > > > > PlyVertexWithNormalAndColor;
-	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real > > > PlyVertexWithNormal;
-
-	template< typename Vertex >
-	static void Set(Vertex &v, Poisson::Point<Real> &point)
-	{
-		ERROR_OUT("Unrecognized vertex type");
-	}
-	template<>
-	static void Set(PlyVertexWithNormalAndColor &v, Poisson::Point<Real> &point)
-	{
-		for (size_t i = 0; i < 3; i++)
-		{
-			//Point
-			v.point.coords[i] = point.xyz[i];
-			//Normal
-			v.data.template data<0>().coords[i] = point.normal[i];
-			//Color 
-			std::get< 0 >(v.data.template data<1>()).data().coords[i] = point.color[i];
-		}
-	}
-	template<>
-	static void Set(PlyVertexWithNormal &v, Poisson::Point<Real> &point)
-	{
-		for (size_t i = 0; i < 3; i++)
-		{
-			//Point
-			v.point.coords[i] = point.xyz[i];
-			//Normal
-			v.data.template data<0>().coords[i] = point.normal[i];
-		}
-	}
-};
+#include "MeshDataOperations.h"
 
 MessageWriter messageWriter;
 
@@ -440,7 +337,7 @@ struct SystemDual< Dim , double >
 };
 
 template< typename Vertex , typename Real , typename SetVertexFunction , unsigned int ... FEMSigs , typename ... SampleData >
-void ExtractMesh(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > , std::tuple< SampleData ... > , FEMTree< sizeof ... ( FEMSigs ) , Real >& tree , const DenseNodeData< Real , UIntPack< FEMSigs ... > >& solution , Real isoValue , const std::vector< typename FEMTree< sizeof ... ( FEMSigs ) , Real >::PointSample >* samples , std::vector< MultiPointStreamData< Real , PointStreamNormal< Real , DEFAULT_DIMENSION > , MultiPointStreamData< Real , SampleData ... > > >* sampleData , const typename FEMTree< sizeof ... ( FEMSigs ) , Real >::template DensityEstimator< WEIGHT_DEGREE >* density , const SetVertexFunction &SetVertex , std::vector< std::string > &comments , XForm< Real , sizeof...(FEMSigs)+1 > unitCubeToModel )
+void ExtractMesh(AdaptativeSolvers::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > , std::tuple< SampleData ... > , FEMTree< sizeof ... ( FEMSigs ) , Real >& tree , const DenseNodeData< Real , UIntPack< FEMSigs ... > >& solution , Real isoValue , const std::vector< typename FEMTree< sizeof ... ( FEMSigs ) , Real >::PointSample >* samples , std::vector< MultiPointStreamData< Real , PointStreamNormal< Real , DEFAULT_DIMENSION > , MultiPointStreamData< Real , SampleData ... > > >* sampleData , const typename FEMTree< sizeof ... ( FEMSigs ) , Real >::template DensityEstimator< WEIGHT_DEGREE >* density , const SetVertexFunction &SetVertex , std::vector< std::string > &comments , XForm< Real , sizeof...(FEMSigs)+1 > unitCubeToModel )
 {
 	static const int Dim = sizeof ... ( FEMSigs );
 	typedef UIntPack< FEMSigs ... > Sigs;
@@ -490,59 +387,8 @@ void ExtractMesh(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > , std
 	if( PolygonMesh.set ) profiler.dumpOutput2( comments , "#         Got polygons:" );
 	else                  profiler.dumpOutput2( comments , "#        Got triangles:" );
 
-	mesh->resetIterator();
-
-	//Get the mesh
-	typename Vertex::Transform _xForm(iXForm);
-	mesh->resetIterator();
-	const auto size_in_core_points = mesh->inCorePoints.size();
-	const auto size_out_core_points = mesh->outOfCorePointCount();
-	//Clear input
-	mesh_in_out.points.clear();
-	mesh_in_out.faces.clear();
-	mesh_in_out.points.reserve(size_in_core_points + size_out_core_points);
-	for (size_t i = 0; i < sizeInCorePoints; i++)
-	{
-		Vertex v = _xForm(mesh->inCorePoints[i]);
-		Poisson::Point<Real> point;
-		VertexDataExtractor<Real, Dim>::Extract(v, point);
-		mesh_in_out.points.emplace_back(point);
-	}
-	for (size_t i = 0; i < sizeOutOfCorePoints; i++)
-	{
-		Vertex v;
-		mesh->nextOutOfCorePoint(v);
-		v = _xForm(v);
-		Poisson::Point<Real> point;
-		VertexDataExtractor<Real, Dim>::Extract(v, point);
-		mesh_in_out.points.emplace_back(point);
-	}
-
-	//Write faces
-	std::vector< CoredVertexIndex< node_index_type > > polygon;
-	const auto size_faces = mesh->polygonCount();
-	unsigned int index_vertex;
-	mesh_in_out.faces.reserve(size_faces);
-	for (size_t i = 0; i < size_faces; i++)
-	{
-		Poisson::Face face;
-		mesh->nextPolygon(polygon);
-		const auto size_polygon = polygon.size();
-		for (size_t j = 0; j < size_polygon; j++)
-		{
-			if (polygon[j].inCore)
-			{
-				index_vertex = polygon[j].idx;
-			}
-			else
-			{
-				index_vertex = polygon[j].idx + mesh->inCorePoints.size();
-			}
-			//Add the pointer to the vertex inside the face
-			face.point_indices[j] = index_vertex;
-		}
-		mesh_in_out.faces.emplace_back(face);
-	}
+	SetGetMesh::GetMesh<Vertex, Real, node_index_type>(mesh, mesh_in_out);
+	mesh_in_out.has_value = Density.set;
 	delete mesh;
 }
 
@@ -615,7 +461,7 @@ void WriteGrid( const char *fileName , ConstPointer( Real ) values , unsigned in
 }
 
 template< class Real , typename ... SampleData , unsigned int ... FEMSigs >
-void Execute(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > )
+void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > )
 {
 	static const int Dim = sizeof ... ( FEMSigs );
 	typedef UIntPack< FEMSigs ... > Sigs;
@@ -699,20 +545,8 @@ void Execute(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > )
 		InputPointStream* pointStream;
 		sampleData = new std::vector< TotalPointSampleData >();
 		std::vector< std::pair< Point< Real , Dim > , TotalPointSampleData > > inCorePoints;
-
 		//Copy points
-		{
-			for (const auto& point : mesh_in_out.points)
-			{
-				Vertex v;
-				VertexDataSetter<Real, Dim>::Set(v, *point);
-				std::pair< Point< Real, Dim >, TotalPointSampleData > p;
-				std::get<0>(p) = v.point;
-				std::get<1>(p) = v.data;
-				inCorePoints.push_back(p);
-			}
-		}
-
+		SetGetMesh::SetPoints<Vertex, Real, Dim, TotalPointSampleData>(mesh_in_out, inCorePoints);
 		pointStream = new MemoryInputPointStreamWithData< Real, Dim, TotalPointSampleData >(inCorePoints.size(), &inCorePoints[0]);
 		typename TotalPointSampleData::Transform _modelToUnitCube( modelToUnitCube );
 		XInputPointStream _pointStream( [&]( Point< Real , Dim >& p , TotalPointSampleData& d ){ p = modelToUnitCube*p , d = _modelToUnitCube(d); } , *pointStream );
@@ -1062,12 +896,12 @@ void Execute(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > )
 			if (Normals.value == NORMALS_SAMPLES)
 			{
 				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = d.template data<0>(), v.data.template data<1>() = w, v.data.template data<2>() = d.template data<1>(); };
-				ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
+				ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
 			else if (Normals.value == NORMALS_GRADIENTS)
 			{
 				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = -g / (1 << Depth.value), v.data.template data<1>() = w, v.data.template data<2>() = d.template data<1>(); };
-				ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
+				ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
 		}
 		else
@@ -1076,12 +910,12 @@ void Execute(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > )
 			if (Normals.value == NORMALS_SAMPLES)
 			{
 				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = d.template data<0>(), v.data.template data<1>() = d.template data<1>(); };
-				ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
+				ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
 			else if (Normals.value == NORMALS_GRADIENTS)
 			{
 				auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = -g / (1 << Depth.value), v.data.template data<1>() = d.template data<1>(); };
-				ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
+				ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 			}
 		}
 	}
@@ -1091,13 +925,13 @@ void Execute(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > )
 		{
 			typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamValue< Real >, AdditionalPointSampleData > > Vertex;
 			auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > g, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = w, v.data.template data<1>() = d.template data<1>(); };
-			ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
+			ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 		}
 		else
 		{
 			typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, AdditionalPointSampleData > > Vertex;
 			auto SetVertex = [](Vertex& v, Point< Real, Dim > p, Point< Real, Dim > n, Real w, TotalPointSampleData d) { v.point = p, v.data.template data<0>() = d.template data<1>(); };
-			ExtractMesh< Vertex >(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
+			ExtractMesh< Vertex >(mesh_in_out, UIntPack< FEMSigs ... >(), std::tuple< SampleData ... >(), tree, solution, isoValue, samples, sampleData, density, SetVertex, comments, unitCubeToModel);
 		}
 	}
 	if (sampleData) { delete sampleData; sampleData = NULL; }
@@ -1107,7 +941,7 @@ void Execute(Poisson::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > )
 
 #ifndef FAST_COMPILE
 template< unsigned int Dim , class Real , BoundaryType BType , typename ... SampleData >
-void Execute(Poisson::Mesh<Real>& mesh_in_out)
+void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out)
 {
 	switch( Degree.value )
 	{
@@ -1120,7 +954,7 @@ void Execute(Poisson::Mesh<Real>& mesh_in_out)
 }
 
 template< unsigned int Dim , class Real , typename ... SampleData >
-void Execute(Poisson::Mesh<Real>& mesh_in_out)
+void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out)
 {
 	switch( BType.value )
 	{
@@ -1133,7 +967,7 @@ void Execute(Poisson::Mesh<Real>& mesh_in_out)
 #endif // !FAST_COMPILE
 
 template<typename T>
-bool PoissonRecon::compute(Poisson::Mesh<T>& mesh_in_out, const Poisson::Options & options)
+bool PoissonRecon::compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Options & options)
 {
 	Timer timer;
 #ifdef USE_SEG_FAULT_HANDLER
@@ -1217,14 +1051,8 @@ bool PoissonRecon::compute(Poisson::Mesh<T>& mesh_in_out, const Poisson::Options
 	else             Execute< Real >(argc, argv, FEMSigs());
 #else // !FAST_COMPILE
 	if (!PointWeight.set) PointWeight.value = DefaultPointWeightMultiplier * Degree.value;
-	if (Colors.set)
-	{
-		Execute< DEFAULT_DIMENSION, Real, PointStreamColor< float > >(mesh_in_out);
-	}
-	else
-	{
-		Execute< DEFAULT_DIMENSION, Real >(mesh_in_out);
-	}
+	if (Colors.set) Execute< DEFAULT_DIMENSION, Real, PointStreamColor< float > >(mesh_in_out);
+	else			Execute< DEFAULT_DIMENSION, Real >(mesh_in_out);
 #endif // FAST_COMPILE
 	if (Performance.set)
 	{
@@ -1234,9 +1062,4 @@ bool PoissonRecon::compute(Poisson::Mesh<T>& mesh_in_out, const Poisson::Options
 
 	ThreadPool::Terminate();
 	return EXIT_SUCCESS;
-}
-
-
-int main(int argc, char* argv[])
-{
 }
