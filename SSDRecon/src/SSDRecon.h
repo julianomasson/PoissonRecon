@@ -1,14 +1,9 @@
-#ifdef SSDRECON_EXPORTS
-#define SSDRECON_API __declspec(dllexport)
-#else
-#define SSDRECON_API __declspec(dllimport)
-#endif
 #pragma once
 
 #include <vector>
 #include "MeshData.h"
 
-class SSDRECON_API SSDRecon
+class SSDRecon
 {
 public:
 	SSDRecon(void) {};

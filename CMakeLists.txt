@@ -27,3 +27,5 @@ target_link_libraries(PoissonRecon PNG)
 target_link_libraries(SSDRecon ZLIB)
 target_link_libraries(SSDRecon JPEG)
 target_link_libraries(SSDRecon PNG)
+
+install(FILES src/MeshData.h DESTINATION include)

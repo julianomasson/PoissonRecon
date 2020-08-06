@@ -1,14 +1,9 @@
-#ifdef POISSONRECON_EXPORTS
-#define POISSONRECON_API __declspec(dllexport)
-#else
-#define POISSONRECON_API __declspec(dllimport)
-#endif
 #pragma once
 
 #include <vector>
 #include "MeshData.h"
 
-class POISSONRECON_API PoissonRecon
+class PoissonRecon
 {
 public:
 	PoissonRecon(void) {};

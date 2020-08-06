@@ -1,14 +1,9 @@
-#ifdef SURFACETRIMMER_EXPORTS
-#define SURFACETRIMMER_API __declspec(dllexport)
-#else
-#define SURFACETRIMMER_API __declspec(dllimport)
-#endif
 #pragma once
 
 #include <vector>
 #include "MeshData.h"
 
-class SURFACETRIMMER_API SurfaceTrimmer {
+class SurfaceTrimmer {
 public:
 	SurfaceTrimmer(void) {};
 

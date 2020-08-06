@@ -15,9 +15,15 @@ endif()
 add_library(${PROJECT_NAME} src/PoissonRecon.cpp
 			    src/PoissonRecon.h)
 
-add_definitions(-DPOISSONRECON_LIB_DLL
-                -DPOISSONRECON_LIB_MAKE_DLL)
+set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "d")
 
-target_link_libraries(${PROJECT_NAME} ${VTK_LIBRARIES})
+install (TARGETS ${PROJECT_NAME}
+         ARCHIVE DESTINATION lib
+         LIBRARY DESTINATION lib
+         RUNTIME DESTINATION bin)
+
+install(FILES src/PoissonRecon.h DESTINATION include)
+
+
 
 
