@@ -11,16 +11,25 @@ if(WIN32)
   endif()
 endif()
 
+if(BUILD_SHARED_LIBS)
+  add_compile_definitions(POISSONRECON_EXPORTS)
+endif()
+
 # Declare library
 add_library(${PROJECT_NAME} src/PoissonRecon.cpp
 			    src/PoissonRecon.h)
 
-set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "d")
+install (TARGETS ${PROJECT_NAME}
+         CONFIGURATIONS Debug
+         ARCHIVE DESTINATION lib/Debug
+         LIBRARY DESTINATION lib/Debug
+         RUNTIME DESTINATION bin/Debug)
 
 install (TARGETS ${PROJECT_NAME}
-         ARCHIVE DESTINATION lib
-         LIBRARY DESTINATION lib
-         RUNTIME DESTINATION bin)
+         CONFIGURATIONS Release
+         ARCHIVE DESTINATION lib/Release
+         LIBRARY DESTINATION lib/Release
+         RUNTIME DESTINATION bin/Release)
 
 install(FILES src/PoissonRecon.h DESTINATION include)
 

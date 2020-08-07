@@ -6,7 +6,7 @@
 template< typename Real, unsigned int Dim >
 struct VertexDataExtractor
 {
-	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, MultiPointStreamData< Real, PointStreamColor< Real > > > > PlyVertexWithNormalValueAndColor;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, MultiPointStreamData< Real, PointStreamColor< float > > > > PlyVertexWithNormalValueAndColor;
 	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, MultiPointStreamData< Real > > > PlyVertexWithNormalAndValue;
 	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real, PointStreamColor< Real > > > > PlyVertexWithNormalAndColor;
 	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real > > > PlyVertexWithNormal;
@@ -27,9 +27,9 @@ struct VertexDataExtractor
 			point.normal[i] = v.data.template data<0>().coords[i];
 			//Color 
 			point.color[i] = std::get< 0 >(v.data.template data<2>()).data().coords[i];
-			//Value
-			point.value = v.data.template data<1>();
 		}
+		//Value
+		point.value = v.data.template data<1>();
 	}
 	template<>
 	static void Extract(const PlyVertexWithNormalAndValue &v, AdaptativeSolvers::Point<Real> &point)
@@ -40,9 +40,9 @@ struct VertexDataExtractor
 			point.xyz[i] = v.point.coords[i];
 			//Normal
 			point.normal[i] = v.data.template data<0>().coords[i];
-			//Value
-			point.value = v.data.template data<1>();
 		}
+		//Value
+		point.value = v.data.template data<1>();
 	}
 	template<>
 	static void Extract(const PlyVertexWithNormalAndColor &v, AdaptativeSolvers::Point<Real> &point)
@@ -73,13 +73,100 @@ struct VertexDataExtractor
 template< typename Real, unsigned int Dim >
 struct VertexDataSetter
 {
-	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real, PointStreamColor< Real > > > > PlyVertexWithNormalAndColor;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamValue< Real >, PointStreamNormal< Real, Dim >, PointStreamColor< float > > > PlyVertexWithValueNormalAndColor;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamValue< Real >, PointStreamNormal< Real, Dim > > > PlyVertexWithValueAndNormal;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamValue< Real >, PointStreamColor< float > > > PlyVertexWithValueAndColor;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamValue< Real > > > PlyVertexWithValue;
+
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, MultiPointStreamData< Real, PointStreamColor< float > > > > PlyVertexWithNormalValueAndColor;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, MultiPointStreamData< Real > > > PlyVertexWithNormalAndValue;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real, PointStreamColor< float > > > > PlyVertexWithNormalAndColor;
 	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real > > > PlyVertexWithNormal;
 
 	template< typename Vertex >
 	static void Set(Vertex &v, AdaptativeSolvers::Point<Real> &point)
 	{
 		ERROR_OUT("Unrecognized vertex type");
+	}
+	template<>
+	static void Set(const PlyVertexWithValueNormalAndColor &v, AdaptativeSolvers::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			v.point.coords[i] = point.xyz[i];
+			//Normal
+			v.data.template data<1>().coords[i] = point.normal[i];
+			//Color 
+			v.data.template data<2>().data().coords[i] = point.color[i];
+		}
+		//Value
+		v.data.template data<0>() = point.value;
+	}
+	template<>
+	static void Set(const PlyVertexWithValueAndNormal &v, AdaptativeSolvers::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			v.point.coords[i] = point.xyz[i];
+			//Normal
+			v.data.template data<1>().coords[i] = point.normal[i];
+		}
+		//Value
+		v.data.template data<0>() = point.value;
+	}
+	template<>
+	static void Set(const PlyVertexWithValueAndColor &v, AdaptativeSolvers::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			v.point.coords[i] = point.xyz[i];
+			//Color
+			v.data.template data<1>().coords[i] = point.color[i];
+		}
+		//Value
+		v.data.template data<0>() = point.value;
+	}
+	template<>
+	static void Set(const PlyVertexWithValue &v, AdaptativeSolvers::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			v.point.coords[i] = point.xyz[i];
+		}
+		//Value
+		v.data.template data<0>() = point.value;
+	}
+	template<>
+	static void Set(const PlyVertexWithNormalValueAndColor &v, AdaptativeSolvers::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			v.point.coords[i] = point.xyz[i];
+			//Normal
+			v.data.template data<0>().coords[i] = point.normal[i];
+			//Color 
+			std::get< 0 >(v.data.template data<2>()).data().coords[i] = point.color[i];
+		}
+		//Value
+		v.data.template data<1>() = point.value;
+	}
+	template<>
+	static void Set(const PlyVertexWithNormalAndValue &v, AdaptativeSolvers::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			v.point.coords[i] = point.xyz[i];
+			//Normal
+			v.data.template data<0>().coords[i] = point.normal[i];
+		}
+		//Value
+		v.data.template data<1>() = point.value;
 	}
 	template<>
 	static void Set(PlyVertexWithNormalAndColor &v, AdaptativeSolvers::Point<Real> &point)
@@ -117,14 +204,15 @@ public:
 	template< typename Vertex, typename Real, unsigned int Dim, typename TotalPointSampleData>
 	static void SetPoints(const AdaptativeSolvers::Mesh<Real>& point_cloud, std::vector< std::pair< Point< Real, Dim >, TotalPointSampleData > >& inCorePoints)
 	{
-		for (const auto& point : point_cloud.points)
+		inCorePoints.reserve(point_cloud.points.size());
+		for (auto point : point_cloud.points)
 		{
 			Vertex v;
-			VertexDataSetter<Real, Dim>::Set(v, *point);
+			VertexDataSetter<Real, Dim>::Set(v, point);
 			std::pair< Point< Real, Dim >, TotalPointSampleData > p;
 			std::get<0>(p) = v.point;
 			std::get<1>(p) = v.data;
-			inCorePoints.emplce_back(p);
+			inCorePoints.push_back(p);
 		}
 	}
 
@@ -141,10 +229,10 @@ public:
 		for (const auto& face : mesh.faces)
 		{
 			std::vector< Index > indexes;
-			indexes.reserve(3);
-			for (size_t i = 0; i < 3; i++)
+			indexes.reserve(face.point_indices.size());
+			for (auto idx : face.point_indices)
 			{
-				indexes.emplace_back(face.point_indices[i]);
+				indexes.emplace_back(idx);
 			}
 			polygons.emplace_back(indexes);
 		}
@@ -168,37 +256,37 @@ public:
 		for (auto poly : polygons)
 		{
 			AdaptativeSolvers::Face face;
-			for (size_t i = 0; i < 3; i++)
+			face.point_indices.reserve(polygons.size());
+			for (auto idx : poly)
 			{
-				face.point_indices[i];
+				face.point_indices.emplace_back(idx);
 			}
 			mesh.faces.emplace_back(face);
 		}
 	}
 
-	template< typename Vertex, typename Real, typename node_index_type>
-	static void GetMesh(CoredMeshData< Vertex, node_index_type >& mesh, AdaptativeSolvers::Mesh<Real>& mesh_in_out)
+	template< typename Vertex, typename Real, typename node_index_type, unsigned int Dim, unsigned int ... FEMSigs>
+	static void GetMesh(CoredMeshData< Vertex, node_index_type >& mesh, AdaptativeSolvers::Mesh<Real>& mesh_in_out, XForm< Real, sizeof...(FEMSigs) + 1 > unitCubeToModel)
 	{
-		mesh->resetIterator();
-		typename Vertex::Transform _xForm(iXForm);
-		mesh->resetIterator();
-		const auto size_in_core_points = mesh->inCorePoints.size();
-		const auto size_out_core_points = mesh->outOfCorePointCount();
+		typename Vertex::Transform _xForm(unitCubeToModel);
+		mesh.resetIterator();
+		const auto size_in_core_points = mesh.inCorePoints.size();
+		const auto size_out_core_points = mesh.outOfCorePointCount();
 		//Clear input
 		mesh_in_out.points.clear();
 		mesh_in_out.faces.clear();
 		mesh_in_out.points.reserve(size_in_core_points + size_out_core_points);
-		for (size_t i = 0; i < sizeInCorePoints; i++)
+		for (size_t i = 0; i < size_in_core_points; i++)
 		{
-			Vertex v = _xForm(mesh->inCorePoints[i]);
+			Vertex v = _xForm(mesh.inCorePoints[i]);
 			AdaptativeSolvers::Point<Real> point;
 			VertexDataExtractor<Real, Dim>::Extract(v, point);
 			mesh_in_out.points.emplace_back(point);
 		}
-		for (size_t i = 0; i < sizeOutOfCorePoints; i++)
+		for (size_t i = 0; i < size_out_core_points; i++)
 		{
 			Vertex v;
-			mesh->nextOutOfCorePoint(v);
+			mesh.nextOutOfCorePoint(v);
 			v = _xForm(v);
 			AdaptativeSolvers::Point<Real> point;
 			VertexDataExtractor<Real, Dim>::Extract(v, point);
@@ -207,14 +295,15 @@ public:
 
 		//Write faces
 		std::vector< CoredVertexIndex< node_index_type > > polygon;
-		const auto size_faces = mesh->polygonCount();
+		const auto size_faces = mesh.polygonCount();
 		unsigned int index_vertex;
 		mesh_in_out.faces.reserve(size_faces);
 		for (size_t i = 0; i < size_faces; i++)
 		{
 			AdaptativeSolvers::Face face;
-			mesh->nextPolygon(polygon);
+			mesh.nextPolygon(polygon);
 			const auto size_polygon = polygon.size();
+			face.point_indices.reserve(size_polygon);
 			for (size_t j = 0; j < size_polygon; j++)
 			{
 				if (polygon[j].inCore)
@@ -223,10 +312,10 @@ public:
 				}
 				else
 				{
-					index_vertex = polygon[j].idx + mesh->inCorePoints.size();
+					index_vertex = polygon[j].idx + mesh.inCorePoints.size();
 				}
 				//Add the pointer to the vertex inside the face
-				face.point_indices[j] = index_vertex;
+				face.point_indices.emplace_back(index_vertex);
 			}
 			mesh_in_out.faces.emplace_back(face);
 		}

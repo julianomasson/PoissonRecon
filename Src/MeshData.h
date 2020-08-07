@@ -13,7 +13,7 @@ namespace AdaptativeSolvers
 
 	struct Face
 	{
-		unsigned int point_indices[3];
+		std::vector< unsigned int > point_indices;
 	};
 
 	template <typename T>

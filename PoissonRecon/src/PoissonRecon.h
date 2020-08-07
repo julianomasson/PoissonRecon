@@ -1,9 +1,14 @@
+#ifdef POISSONRECON_EXPORTS
+#define POISSONRECON_API __declspec(dllexport)
+#else
+#define POISSONRECON_API __declspec(dllimport)
+#endif
 #pragma once
 
 #include <vector>
 #include "MeshData.h"
 
-class PoissonRecon
+class POISSONRECON_API PoissonRecon
 {
 public:
 	PoissonRecon(void) {};
@@ -11,7 +16,6 @@ public:
 	// Define the poisson options
 	struct Options
 	{
-		Options() {}
 		Options(const int& depth = 8, const int& boundary = 2, const bool& density = true) : depth(depth), boundary(boundary), density(density) {}
 		//Parameters
 		int depth;
@@ -21,6 +25,5 @@ public:
 		bool density;
 	};
 
-	template <typename T>
-	bool compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Options& options);
+	bool compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, const Options& options);
 };

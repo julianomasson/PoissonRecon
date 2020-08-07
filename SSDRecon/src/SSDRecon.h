@@ -1,9 +1,14 @@
+#ifdef SSDRECON_EXPORTS
+#define SSDRECON_API __declspec(dllexport)
+#else
+#define SSDRECON_API __declspec(dllimport)
+#endif
 #pragma once
 
 #include <vector>
 #include "MeshData.h"
 
-class SSDRecon
+class SSDRECON_API SSDRecon
 {
 public:
 	SSDRecon(void) {};
@@ -11,7 +16,6 @@ public:
 	// Define the SSD options
 	struct Options
 	{
-		Options() {}
 		Options(const int& depth = 8, const int& boundary = 2, const bool& density = true) : depth(depth), boundary(boundary), density(density) {}
 		//Parameters
 		int depth;
@@ -21,7 +25,6 @@ public:
 		bool density;
 	};
 
-	template <typename T>
-	bool compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Options& options);
+	bool compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, const Options& options);
 };
 

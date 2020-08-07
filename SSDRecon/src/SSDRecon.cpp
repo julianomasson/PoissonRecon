@@ -400,7 +400,7 @@ void ExtractMesh(AdaptativeSolvers::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs .
 	if( PolygonMesh.set ) profiler.dumpOutput2( comments , "#         Got polygons:" );
 	else                  profiler.dumpOutput2( comments , "#        Got triangles:" );
 
-	SetGetMesh::GetMesh<Vertex, Real, node_index_type>(mesh, mesh_in_out);
+	SetGetMesh::GetMesh<Vertex, Real, node_index_type, Dim, FEMSigs ...>(*mesh, mesh_in_out, unitCubeToModel);
 	mesh_in_out.has_value = Density.set;
 	delete mesh;
 }
@@ -552,6 +552,7 @@ void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >
 	SparseNodeData< Point< Real , Dim > , NormalSigs >* normalInfo = NULL;
 	Real targetValue = (Real)0.;
 
+	typedef PlyVertexWithData< Real, Dim, TotalPointSampleData > Vertex;
 	// Read in the samples (and color data)
 	{
 		profiler.start();
@@ -812,8 +813,7 @@ void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out)
 }
 #endif // !FAST_COMPILE
 
-template<typename T>
-inline bool SSDRecon::compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Options & options)
+inline bool SSDRecon::compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, const Options & options)
 {
 	Timer timer;
 #ifdef USE_SEG_FAULT_HANDLER
@@ -824,14 +824,12 @@ inline bool SSDRecon::compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Opt
 #ifdef ARRAY_DEBUG
 	WARN("Array debugging enabled");
 #endif // ARRAY_DEBUG
-
-	cmdLineParse(argc - 1, &argv[1], params);
 	if (MaxMemoryGB.value > 0) SetPeakMemoryMB(MaxMemoryGB.value << 10);
 	ThreadPool::DefaultChunkSize = ThreadChunkSize.value;
 	ThreadPool::DefaultSchedule = (ThreadPool::ScheduleType)ScheduleType.value;
 	messageWriter.echoSTDOUT = Verbose.set;
 
-	if (!mesh_in_out)
+	if (mesh_in_out.points.size() == 0)
 	{
 		return EXIT_FAILURE;
 	}
@@ -867,14 +865,7 @@ inline bool SSDRecon::compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Opt
 	GradientWeight.value *= (float)BaseSSDWeights[1];
 	BiLapWeight.value *= (float)BaseSSDWeights[2];
 
-	if (std::is_same<T, double>::value)
-	{
-		typedef double Real;
-	}
-	else
-	{
-		typedef float  Real;
-	}
+	typedef double Real;
 
 #ifdef FAST_COMPILE
 	static const int Degree = DEFAULT_FEM_DEGREE;

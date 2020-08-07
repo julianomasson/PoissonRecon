@@ -337,7 +337,13 @@ struct SystemDual< Dim , double >
 };
 
 template< typename Vertex , typename Real , typename SetVertexFunction , unsigned int ... FEMSigs , typename ... SampleData >
-void ExtractMesh(AdaptativeSolvers::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > , std::tuple< SampleData ... > , FEMTree< sizeof ... ( FEMSigs ) , Real >& tree , const DenseNodeData< Real , UIntPack< FEMSigs ... > >& solution , Real isoValue , const std::vector< typename FEMTree< sizeof ... ( FEMSigs ) , Real >::PointSample >* samples , std::vector< MultiPointStreamData< Real , PointStreamNormal< Real , DEFAULT_DIMENSION > , MultiPointStreamData< Real , SampleData ... > > >* sampleData , const typename FEMTree< sizeof ... ( FEMSigs ) , Real >::template DensityEstimator< WEIGHT_DEGREE >* density , const SetVertexFunction &SetVertex , std::vector< std::string > &comments , XForm< Real , sizeof...(FEMSigs)+1 > unitCubeToModel )
+void ExtractMesh(AdaptativeSolvers::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... > , std::tuple< SampleData ... > , FEMTree< sizeof ... ( FEMSigs ) ,
+	Real >& tree , const DenseNodeData< Real , UIntPack< FEMSigs ... > >& solution , Real isoValue ,
+	const std::vector< typename FEMTree< sizeof ... ( FEMSigs ) , Real >::PointSample >* samples ,
+	std::vector< MultiPointStreamData< Real , PointStreamNormal< Real , DEFAULT_DIMENSION > ,
+	MultiPointStreamData< Real , SampleData ... > > >* sampleData , const typename FEMTree< sizeof ... ( FEMSigs ) ,
+	Real >::template DensityEstimator< WEIGHT_DEGREE >* density , const SetVertexFunction &SetVertex ,
+	std::vector< std::string > &comments , XForm< Real , sizeof...(FEMSigs)+1 > unitCubeToModel )
 {
 	static const int Dim = sizeof ... ( FEMSigs );
 	typedef UIntPack< FEMSigs ... > Sigs;
@@ -387,7 +393,7 @@ void ExtractMesh(AdaptativeSolvers::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs .
 	if( PolygonMesh.set ) profiler.dumpOutput2( comments , "#         Got polygons:" );
 	else                  profiler.dumpOutput2( comments , "#        Got triangles:" );
 
-	SetGetMesh::GetMesh<Vertex, Real, node_index_type>(mesh, mesh_in_out);
+	SetGetMesh::GetMesh<Vertex, Real, node_index_type, Dim, FEMSigs ...>(*mesh, mesh_in_out, unitCubeToModel);
 	mesh_in_out.has_value = Density.set;
 	delete mesh;
 }
@@ -539,6 +545,7 @@ void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out, UIntPack< FEMSigs ... >
 	SparseNodeData< Point< Real , Dim > , NormalSigs >* normalInfo = NULL;
 	Real targetValue = (Real)0.5;
 
+	typedef PlyVertexWithData< Real, Dim, TotalPointSampleData > Vertex;
 	// Read in the samples (and color data)
 	{
 		profiler.start();
@@ -966,8 +973,7 @@ void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out)
 }
 #endif // !FAST_COMPILE
 
-template<typename T>
-bool PoissonRecon::compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Options & options)
+inline bool PoissonRecon::compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, const Options & options)
 {
 	Timer timer;
 #ifdef USE_SEG_FAULT_HANDLER
@@ -978,14 +984,13 @@ bool PoissonRecon::compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Option
 #ifdef ARRAY_DEBUG
 	WARN("Array debugging enabled");
 #endif // ARRAY_DEBUG
-	cmdLineParse(argc - 1, &argv[1], params);
 	if (MaxMemoryGB.value > 0) SetPeakMemoryMB(MaxMemoryGB.value << 10);
 	ThreadPool::DefaultChunkSize = ThreadChunkSize.value;
 	ThreadPool::DefaultSchedule = (ThreadPool::ScheduleType)ScheduleType.value;
 	ThreadPool::Init((ThreadPool::ParallelType)ParallelType.value, Threads.value);
 
 	messageWriter.echoSTDOUT = Verbose.set;
-	if (!mesh_in_out)
+	if (mesh_in_out.points.size() == 0)
 	{
 		return 0;
 	}
@@ -1032,15 +1037,7 @@ bool PoissonRecon::compute(AdaptativeSolvers::Mesh<T>& mesh_in_out, const Option
 		WARN(EnvelopeDepth.name, " can't be less than ", BaseDepth.name, ": ", EnvelopeDepth.value, " >= ", BaseDepth.value);
 		EnvelopeDepth.value = BaseDepth.value;
 	}
-	if (std::is_same<T, double>::value)
-	{
-		typedef double Real;
-	}
-	else
-	{
-		typedef float  Real;
-	}
-
+	typedef double Real;
 #ifdef FAST_COMPILE
 	static const int Degree = DEFAULT_FEM_DEGREE;
 	static const BoundaryType BType = DEFAULT_FEM_BOUNDARY;
