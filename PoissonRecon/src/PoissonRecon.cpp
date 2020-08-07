@@ -992,7 +992,7 @@ inline bool PoissonRecon::compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, 
 	messageWriter.echoSTDOUT = Verbose.set;
 	if (mesh_in_out.points.size() == 0)
 	{
-		return 0;
+		return EXIT_FAILURE;
 	}
 	Colors.set = mesh_in_out.has_color;
 	if (mesh_in_out.has_normal)

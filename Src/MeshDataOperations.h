@@ -6,6 +6,11 @@
 template< typename Real, unsigned int Dim >
 struct VertexDataExtractor
 {
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamValue< Real >, PointStreamNormal< Real, Dim >, PointStreamColor< float > > > PlyVertexWithValueNormalAndColor;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamValue< Real >, PointStreamNormal< Real, Dim > > > PlyVertexWithValueAndNormal;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamValue< Real >, PointStreamColor< float > > > PlyVertexWithValueAndColor;
+	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamValue< Real > > > PlyVertexWithValue;
+
 	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, MultiPointStreamData< Real, PointStreamColor< float > > > > PlyVertexWithNormalValueAndColor;
 	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, PointStreamValue< Real >, MultiPointStreamData< Real > > > PlyVertexWithNormalAndValue;
 	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real, PointStreamColor< Real > > > > PlyVertexWithNormalAndColor;
@@ -15,6 +20,58 @@ struct VertexDataExtractor
 	static void Extract(const Vertex &v, AdaptativeSolvers::Point<Real> &point)
 	{
 		ERROR_OUT("Unrecognized vertex type");
+	}
+	template<>
+	static void Extract(const PlyVertexWithValueNormalAndColor &v, AdaptativeSolvers::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			point.xyz[i] = v.point.coords[i];
+			//Normal
+			point.normal[i] = v.data.template data<1>().coords[i];
+			//Color 
+			point.color[i] = v.data.template data<2>().coords[i];
+		}
+		//Value
+		point.value = v.data.template data<0>();
+	}
+	template<>
+	static void Extract(const PlyVertexWithValueAndNormal &v, AdaptativeSolvers::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			point.xyz[i] = v.point.coords[i];
+			//Normal
+			point.normal[i] = v.data.template data<1>().coords[i];
+		}
+		//Value
+		point.value = v.data.template data<0>();
+	}
+	template<>
+	static void Extract(const PlyVertexWithValueAndColor &v, AdaptativeSolvers::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			point.xyz[i] = v.point.coords[i];
+			//Color
+			point.color[i] = v.data.template data<1>().coords[i];
+		}
+		//Value
+		point.value = v.data.template data<0>();
+	}
+	template<>
+	static void Extract(const PlyVertexWithValue &v, AdaptativeSolvers::Point<Real> &point)
+	{
+		for (size_t i = 0; i < 3; i++)
+		{
+			//Point
+			point.xyz[i] = v.point.coords[i];
+		}
+		//Value
+		point.value = v.data.template data<0>();
 	}
 	template<>
 	static void Extract(const PlyVertexWithNormalValueAndColor &v, AdaptativeSolvers::Point<Real> &point)
@@ -84,12 +141,12 @@ struct VertexDataSetter
 	typedef PlyVertexWithData< Real, Dim, MultiPointStreamData< Real, PointStreamNormal< Real, Dim >, MultiPointStreamData< Real > > > PlyVertexWithNormal;
 
 	template< typename Vertex >
-	static void Set(Vertex &v, AdaptativeSolvers::Point<Real> &point)
+	static void Set(Vertex &v, const AdaptativeSolvers::Point<Real> &point)
 	{
 		ERROR_OUT("Unrecognized vertex type");
 	}
 	template<>
-	static void Set(const PlyVertexWithValueNormalAndColor &v, AdaptativeSolvers::Point<Real> &point)
+	static void Set(PlyVertexWithValueNormalAndColor &v, const AdaptativeSolvers::Point<Real> &point)
 	{
 		for (size_t i = 0; i < 3; i++)
 		{
@@ -98,13 +155,13 @@ struct VertexDataSetter
 			//Normal
 			v.data.template data<1>().coords[i] = point.normal[i];
 			//Color 
-			v.data.template data<2>().data().coords[i] = point.color[i];
+			v.data.template data<2>().coords[i] = point.color[i];
 		}
 		//Value
 		v.data.template data<0>() = point.value;
 	}
 	template<>
-	static void Set(const PlyVertexWithValueAndNormal &v, AdaptativeSolvers::Point<Real> &point)
+	static void Set(PlyVertexWithValueAndNormal &v, const AdaptativeSolvers::Point<Real> &point)
 	{
 		for (size_t i = 0; i < 3; i++)
 		{
@@ -117,7 +174,7 @@ struct VertexDataSetter
 		v.data.template data<0>() = point.value;
 	}
 	template<>
-	static void Set(const PlyVertexWithValueAndColor &v, AdaptativeSolvers::Point<Real> &point)
+	static void Set(PlyVertexWithValueAndColor &v, const AdaptativeSolvers::Point<Real> &point)
 	{
 		for (size_t i = 0; i < 3; i++)
 		{
@@ -130,7 +187,7 @@ struct VertexDataSetter
 		v.data.template data<0>() = point.value;
 	}
 	template<>
-	static void Set(const PlyVertexWithValue &v, AdaptativeSolvers::Point<Real> &point)
+	static void Set(PlyVertexWithValue &v, const AdaptativeSolvers::Point<Real> &point)
 	{
 		for (size_t i = 0; i < 3; i++)
 		{
@@ -141,7 +198,7 @@ struct VertexDataSetter
 		v.data.template data<0>() = point.value;
 	}
 	template<>
-	static void Set(const PlyVertexWithNormalValueAndColor &v, AdaptativeSolvers::Point<Real> &point)
+	static void Set(PlyVertexWithNormalValueAndColor &v, const AdaptativeSolvers::Point<Real> &point)
 	{
 		for (size_t i = 0; i < 3; i++)
 		{
@@ -156,7 +213,7 @@ struct VertexDataSetter
 		v.data.template data<1>() = point.value;
 	}
 	template<>
-	static void Set(const PlyVertexWithNormalAndValue &v, AdaptativeSolvers::Point<Real> &point)
+	static void Set(PlyVertexWithNormalAndValue &v, const AdaptativeSolvers::Point<Real> &point)
 	{
 		for (size_t i = 0; i < 3; i++)
 		{
@@ -169,7 +226,7 @@ struct VertexDataSetter
 		v.data.template data<1>() = point.value;
 	}
 	template<>
-	static void Set(PlyVertexWithNormalAndColor &v, AdaptativeSolvers::Point<Real> &point)
+	static void Set(PlyVertexWithNormalAndColor &v, const AdaptativeSolvers::Point<Real> &point)
 	{
 		for (size_t i = 0; i < 3; i++)
 		{
@@ -182,7 +239,7 @@ struct VertexDataSetter
 		}
 	}
 	template<>
-	static void Set(PlyVertexWithNormal &v, AdaptativeSolvers::Point<Real> &point)
+	static void Set(PlyVertexWithNormal &v, const AdaptativeSolvers::Point<Real> &point)
 	{
 		for (size_t i = 0; i < 3; i++)
 		{

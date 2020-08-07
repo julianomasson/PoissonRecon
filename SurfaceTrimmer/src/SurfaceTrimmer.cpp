@@ -396,7 +396,11 @@ inline bool SurfaceTrimmer::compute(AdaptativeSolvers::Mesh<float>& mesh_in_out,
 	}
 	bool hasNormal = mesh_in_out.has_normal;
 	bool hasColor = mesh_in_out.has_color;
-
+	//Parameters
+	Trim.value = options.trim_value;
+	Smooth.value = options.smooth;
+	IslandAreaRatio.value = options.aRatio;
+	PolygonMesh.set = options.polygonMesh;
 	if (Long.set)
 		if (hasColor)
 			if (hasNormal) return Execute< long long, PointStreamNormal< float, DEFAULT_DIMENSION >, PointStreamColor< float > >(mesh_in_out);
