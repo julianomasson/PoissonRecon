@@ -261,15 +261,17 @@ public:
 	template< typename Vertex, typename Real, unsigned int Dim, typename TotalPointSampleData>
 	static void SetPoints(const AdaptativeSolvers::Mesh<Real>& point_cloud, std::vector< std::pair< Point< Real, Dim >, TotalPointSampleData > >& inCorePoints)
 	{
-		inCorePoints.reserve(point_cloud.points.size());
-		for (auto point : point_cloud.points)
+		const auto points_size = point_cloud.points.size();
+		inCorePoints.resize(points_size);
+#pragma omp parallel for
+		for (int i = 0; i < points_size; i++)
 		{
 			Vertex v;
-			VertexDataSetter<Real, Dim>::Set(v, point);
+			VertexDataSetter<Real, Dim>::Set(v, point_cloud.points[i]);
 			std::pair< Point< Real, Dim >, TotalPointSampleData > p;
 			std::get<0>(p) = v.point;
 			std::get<1>(p) = v.data;
-			inCorePoints.push_back(p);
+			inCorePoints[i] = p;
 		}
 	}
 
@@ -277,21 +279,27 @@ public:
 	static void SetMesh(const AdaptativeSolvers::Mesh<Real>& mesh,
 		std::vector< Vertex >& vertices, std::vector< std::vector< Index > >& polygons)
 	{
-		for (auto point : mesh.points)
+		const auto points_size = mesh.points.size();
+		vertices.resize(points_size);
+#pragma omp parallel for
+		for (int i = 0; i < points_size; i++)
 		{
 			Vertex v;
-			VertexDataSetter<Real, 3>::Set(v, point);
-			vertices.emplace_back(v);
+			VertexDataSetter<Real, 3>::Set(v, mesh.points[i]);
+			vertices[i] = v;
 		}
-		for (const auto& face : mesh.faces)
+		const auto faces_size = mesh.faces.size();
+		polygons.resize(faces_size);
+#pragma omp parallel for
+		for (int i = 0; i < faces_size; i++)
 		{
 			std::vector< Index > indexes;
-			indexes.reserve(face.point_indices.size());
-			for (auto idx : face.point_indices)
+			indexes.reserve(mesh.faces[i].point_indices.size());
+			for (auto idx : mesh.faces[i].point_indices)
 			{
 				indexes.emplace_back(idx);
 			}
-			polygons.emplace_back(indexes);
+			polygons[i] = indexes;
 		}
 	}
 
@@ -302,23 +310,27 @@ public:
 		//clear mesh
 		mesh.points.clear();
 		mesh.faces.clear();
-		mesh.points.reserve(vertices.size());
-		mesh.faces.reserve(polygons.size());
-		for (auto vert : vertices)
+		const auto vertices_size = vertices.size();
+		const auto polygons_size = polygons.size();
+		mesh.points.resize(vertices_size);
+		mesh.faces.resize(polygons_size);
+#pragma omp parallel for
+		for (int i = 0; i < vertices_size; i++)
 		{
 			AdaptativeSolvers::Point<Real> point;
-			VertexDataExtractor<Real, 3>::Extract(vert, point);
-			mesh.points.emplace_back(point);
+			VertexDataExtractor<Real, 3>::Extract(vertices[i], point);
+			mesh.points[i] = point;
 		}
-		for (auto poly : polygons)
+#pragma omp parallel for
+		for (int i = 0; i < polygons_size; i++)
 		{
 			AdaptativeSolvers::Face face;
-			face.point_indices.reserve(polygons.size());
-			for (auto idx : poly)
+			face.point_indices.reserve(polygons[i].size());
+			for (auto idx : polygons[i])
 			{
 				face.point_indices.emplace_back(idx);
 			}
-			mesh.faces.emplace_back(face);
+			mesh.faces[i] = face;
 		}
 	}
 
@@ -332,13 +344,14 @@ public:
 		//Clear input
 		mesh_in_out.points.clear();
 		mesh_in_out.faces.clear();
-		mesh_in_out.points.reserve(size_in_core_points + size_out_core_points);
-		for (size_t i = 0; i < size_in_core_points; i++)
+		mesh_in_out.points.resize(size_in_core_points + size_out_core_points);
+#pragma omp parallel for
+		for (int i = 0; i < size_in_core_points; i++)
 		{
 			Vertex v = _xForm(mesh.inCorePoints[i]);
 			AdaptativeSolvers::Point<Real> point;
 			VertexDataExtractor<Real, Dim>::Extract(v, point);
-			mesh_in_out.points.emplace_back(point);
+			mesh_in_out.points[i] = point;
 		}
 		for (size_t i = 0; i < size_out_core_points; i++)
 		{
@@ -347,7 +360,7 @@ public:
 			v = _xForm(v);
 			AdaptativeSolvers::Point<Real> point;
 			VertexDataExtractor<Real, Dim>::Extract(v, point);
-			mesh_in_out.points.emplace_back(point);
+			mesh_in_out.points[i] = point;
 		}
 
 		//Write faces
