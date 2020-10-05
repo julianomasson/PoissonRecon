@@ -813,7 +813,7 @@ void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out)
 }
 #endif // !FAST_COMPILE
 
-inline bool SSDRecon::compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, const Options & options)
+inline bool SSDRecon::Compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, const Options & options)
 {
 	Timer timer;
 #ifdef USE_SEG_FAULT_HANDLER
@@ -846,6 +846,7 @@ inline bool SSDRecon::compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, cons
 	Depth.value = options.depth;
 	BType.value = options.boundary;
 	Density.set = options.density;
+	SamplesPerNode.value = options.samplesPerNode;
 	if (GradientWeight.value <= 0) ERROR_OUT("Gradient weight must be positive: ", GradientWeight.value, "> 0");
 	if (BiLapWeight.value <= 0) ERROR_OUT("Bi-Laplacian weight must be positive: ", BiLapWeight.value, " > 0");
 	if (!BaseDepth.set) BaseDepth.value = FullDepth.value;

@@ -25,5 +25,5 @@ public:
 		bool polygonMesh;
 	};
 
-	bool compute(AdaptativeSolvers::Mesh<float>& mesh_in_out, const Options& options);
+	bool Compute(AdaptativeSolvers::Mesh<float>& mesh_in_out, const Options& options);
 };

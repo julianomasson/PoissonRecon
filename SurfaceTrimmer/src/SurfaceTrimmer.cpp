@@ -388,7 +388,7 @@ int Execute(AdaptativeSolvers::Mesh<float>& mesh_in_out)
 	
 	return EXIT_SUCCESS;
 }
-inline bool SurfaceTrimmer::compute(AdaptativeSolvers::Mesh<float>& mesh_in_out, const Options & options)
+inline bool SurfaceTrimmer::Compute(AdaptativeSolvers::Mesh<float>& mesh_in_out, const Options & options)
 {
 	if (mesh_in_out.points.size() == 0 || !mesh_in_out.has_value)
 	{

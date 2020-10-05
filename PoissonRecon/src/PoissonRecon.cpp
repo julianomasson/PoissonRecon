@@ -973,7 +973,7 @@ void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out)
 }
 #endif // !FAST_COMPILE
 
-inline bool PoissonRecon::compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, const Options & options)
+inline bool PoissonRecon::Compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, const Options & options)
 {
 	Timer timer;
 #ifdef USE_SEG_FAULT_HANDLER
@@ -1007,6 +1007,7 @@ inline bool PoissonRecon::compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, 
 	Depth.value = options.depth;
 	BType.value = options.boundary;
 	Density.set = options.density;
+	SamplesPerNode.value = options.samplesPerNode;
 	if (!BaseDepth.set) BaseDepth.value = FullDepth.value;
 	if (BaseDepth.value > FullDepth.value)
 	{
