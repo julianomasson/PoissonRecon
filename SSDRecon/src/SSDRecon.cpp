@@ -813,7 +813,7 @@ void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out)
 }
 #endif // !FAST_COMPILE
 
-inline bool SSDRecon::Compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, const Options & options)
+inline bool SSDRecon::Compute(AdaptativeSolvers::Mesh<float>& mesh_in_out, const Options & options)
 {
 	Timer timer;
 #ifdef USE_SEG_FAULT_HANDLER
@@ -866,7 +866,7 @@ inline bool SSDRecon::Compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, cons
 	GradientWeight.value *= (float)BaseSSDWeights[1];
 	BiLapWeight.value *= (float)BaseSSDWeights[2];
 
-	typedef double Real;
+	typedef float Real;
 
 #ifdef FAST_COMPILE
 	static const int Degree = DEFAULT_FEM_DEGREE;

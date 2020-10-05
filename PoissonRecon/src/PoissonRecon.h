@@ -22,11 +22,11 @@ public:
 		int depth;
 		//1-BOUNDARY_FREE 2-BOUNDARY_NEUMANN 3-BOUNDARY_DIRICHLET
 		int boundary;
-		//Samples
-		bool samplesPerNode;
+		//[1.0-5.0] for point cloud with less noise and [15.0-20.0] if we have a lot of noise
+		float samplesPerNode;
 		//Generate the value scalar
 		bool density;
 	};
 
-	bool Compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, const Options& options);
+	bool Compute(AdaptativeSolvers::Mesh<float>& mesh_in_out, const Options& options);
 };

@@ -973,7 +973,7 @@ void Execute(AdaptativeSolvers::Mesh<Real>& mesh_in_out)
 }
 #endif // !FAST_COMPILE
 
-inline bool PoissonRecon::Compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, const Options & options)
+inline bool PoissonRecon::Compute(AdaptativeSolvers::Mesh<float>& mesh_in_out, const Options & options)
 {
 	Timer timer;
 #ifdef USE_SEG_FAULT_HANDLER
@@ -1038,7 +1038,7 @@ inline bool PoissonRecon::Compute(AdaptativeSolvers::Mesh<double>& mesh_in_out, 
 		WARN(EnvelopeDepth.name, " can't be less than ", BaseDepth.name, ": ", EnvelopeDepth.value, " >= ", BaseDepth.value);
 		EnvelopeDepth.value = BaseDepth.value;
 	}
-	typedef double Real;
+	typedef float Real;
 #ifdef FAST_COMPILE
 	static const int Degree = DEFAULT_FEM_DEGREE;
 	static const BoundaryType BType = DEFAULT_FEM_BOUNDARY;
