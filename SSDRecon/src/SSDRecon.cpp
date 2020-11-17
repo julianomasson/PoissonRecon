@@ -834,13 +834,14 @@ inline bool SSDRecon::Compute(AdaptativeSolvers::Mesh<float>& mesh_in_out, const
 		return EXIT_FAILURE;
 	}
 	Colors.set = mesh_in_out.has_color;
-	if (mesh_in_out.has_normal)
+	Normals.set = mesh_in_out.has_normal;
+	if (Normals.set)
 	{
-		Normals.value = NORMALS_SAMPLES;
+		Normals.value = NORMALS_GRADIENTS;
 	}
 	else
 	{
-		Normals.value = NORMALS_NONE;
+		return EXIT_FAILURE;
 	}
 	//Parameters
 	Depth.value = options.depth;
